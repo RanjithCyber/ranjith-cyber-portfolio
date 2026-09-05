@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0e14"/>
+      <stop offset="100%" stop-color="#161b22"/>
+    </linearGradient>
+    <linearGradient id="ember" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+    <linearGradient id="mint" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Background Container -->
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+  <rect x="2" y="2" width="60" height="60" rx="12" fill="none" stroke="#2d3542" stroke-width="1.5"/>
+
+  <!-- Cyber Shield Geometry -->
+  <polygon points="32,8 52,18 52,38 32,54 12,38 12,18" fill="#131720" stroke="url(#ember)" stroke-width="2.5" stroke-linejoin="round" filter="url(#glow)"/>
+
+  <!-- Monogram R -->
+  <path d="M 24 20 L 35 20 C 39.5 20 42 22.5 42 26 C 42 29.5 39.5 32 35 32 L 24 32 Z M 24 20 L 24 44 M 32 32 L 41 44" fill="none" stroke="#f59e0b" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Active Defense Signal Pulse Dot -->
+  <circle cx="44" cy="18" r="3.5" fill="#10b981" filter="url(#glow)"/>
+</svg>
