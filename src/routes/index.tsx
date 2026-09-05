@@ -176,6 +176,8 @@ const certificationsData: CertificationData[] = [
     title: "CEH v13 AI",
     detail: "Certified Ethical Hacker with AI threat techniques and offensive penetration testing skills.",
     skillsValidated: ["AI Threat Vectors", "Ethical Hacking", "Metasploit", "Vulnerability Scanning"],
+    verificationId: "488207",
+    issuedDate: "April 2026",
   },
   {
     code: "C-02",
@@ -183,6 +185,8 @@ const certificationsData: CertificationData[] = [
     title: "CompTIA CySA+",
     detail: "Security analytics, threat modeling, incident response, and log triage.",
     skillsValidated: ["SIEM Log Analysis", "Threat Hunting", "Incident Response", "Network Defense"],
+    verificationId: "CC-f716ab2a-7816-44fb-981c-93dcf71c5789",
+    issuedDate: "Jul 2, 2024",
   },
   {
     code: "C-03",
@@ -190,6 +194,7 @@ const certificationsData: CertificationData[] = [
     title: "ISC2 CC",
     detail: "Cybersecurity fundamentals, access control, network defense, and risk management.",
     skillsValidated: ["Access Control", "Risk Management", "Business Continuity", "Network Security"],
+    issuedDate: "Active Record",
   },
   {
     code: "C-04",
@@ -197,6 +202,7 @@ const certificationsData: CertificationData[] = [
     title: "CompTIA Security+",
     detail: "Risk mitigation, enterprise defensive controls, and operational security.",
     skillsValidated: ["Enterprise Controls", "Threat Mitigation", "Cryptography", "Security Auditing"],
+    issuedDate: "Active Record",
   },
 ];
 
@@ -659,6 +665,11 @@ function Index() {
                   {cert.title}
                 </h3>
                 <p className="mt-2 text-xs leading-relaxed text-ink-muted">{cert.detail}</p>
+                {cert.verificationId ? (
+                  <span className="mt-2.5 block font-mono text-[10px] text-ember truncate font-semibold">
+                    ID: {cert.verificationId}
+                  </span>
+                ) : null}
                 <div className="mt-4 font-mono text-[10px] text-ice flex items-center gap-1">
                   Click to inspect credential details →
                 </div>

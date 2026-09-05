@@ -70,14 +70,16 @@ export function CertificationModal({ cert, onClose }: CertificationModalProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 pt-2 font-mono text-[11px]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 font-mono text-[11px]">
+            {cert.verificationId ? (
+              <div className="rounded border border-line bg-obsidian p-2.5">
+                <span className="text-ink-muted/60 block">VERIFICATION CODE</span>
+                <span className="text-ember font-semibold break-all">{cert.verificationId}</span>
+              </div>
+            ) : null}
             <div className="rounded border border-line bg-obsidian p-2.5">
-              <span className="text-ink-muted/60 block">VERIFICATION CODE</span>
-              <span className="text-ember font-semibold">{cert.verificationId || `${cert.code}-2026-VAL`}</span>
-            </div>
-            <div className="rounded border border-line bg-obsidian p-2.5">
-              <span className="text-ink-muted/60 block">VALIDITY</span>
-              <span className="text-mint font-semibold">Active / 2026</span>
+              <span className="text-ink-muted/60 block">ISSUED / VALIDITY</span>
+              <span className="text-mint font-semibold">{cert.issuedDate || "Active Status"}</span>
             </div>
           </div>
         </div>
