@@ -80,6 +80,15 @@ interface GeoData {
   isp: string;
 }
 
+// Cleans up special diacritics like Puliyangūdi -> Puliyangudi
+function normalizeCityName(city: string): string {
+  if (!city) return "Unknown City";
+  return city
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
 async function fetchNetworkGeo(): Promise<GeoData> {
   const fallback: GeoData = {
     cityName: "Unknown City",
@@ -88,7 +97,28 @@ async function fetchNetworkGeo(): Promise<GeoData> {
     isp: "Unknown ISP",
   };
 
-  // 1. Primary fast IP endpoint: freeipapi.com with 2-second timeout
+  // 1. Primary endpoint: ipwho.is (fast, highly accurate regional telecom routing)
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
+    const res = await fetch("https://ipwho.is/", { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success !== false) {
+        return {
+          cityName: normalizeCityName(data.city || fallback.cityName),
+          regionName: data.region || fallback.regionName,
+          countryName: data.country || fallback.countryName,
+          isp: data.connection?.isp || data.connection?.org || fallback.isp,
+        };
+      }
+    }
+  } catch {
+    // Fallback to secondary endpoint
+  }
+
+  // 2. Secondary endpoint: freeipapi.com
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 2000);
@@ -97,33 +127,14 @@ async function fetchNetworkGeo(): Promise<GeoData> {
     if (res.ok) {
       const data = await res.json();
       return {
-        cityName: data.cityName || fallback.cityName,
+        cityName: normalizeCityName(data.cityName || fallback.cityName),
         regionName: data.regionName || fallback.regionName,
         countryName: data.countryName || fallback.countryName,
         isp: data.asnOrganization || (data.asn ? `ASN ${data.asn}` : fallback.isp),
       };
     }
   } catch {
-    // Fallback to secondary endpoint
-  }
-
-  // 2. Secondary fallback endpoint: ipapi.co
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
-    const res = await fetch("https://ipapi.co/json/", { signal: controller.signal });
-    clearTimeout(timeoutId);
-    if (res.ok) {
-      const data = await res.json();
-      return {
-        cityName: data.city || fallback.cityName,
-        regionName: data.region || fallback.regionName,
-        countryName: data.country_name || data.country || fallback.countryName,
-        isp: data.org || fallback.isp,
-      };
-    }
-  } catch {
-    // Graceful silent fallback
+    // Silent fallback
   }
 
   return fallback;
@@ -195,7 +206,7 @@ export async function initAutomatedTelemetry(): Promise<void> {
       `👤 <b>Visitor Profile:</b> <code>${escapeHtml(visitorId)}</code> (${visitSuffix})`,
       `🌐 <b>Origin / App:</b> <b>${escapeHtml(sourceApp)}</b>`,
       `🏢 <b>ISP / Network:</b> <code>${escapeHtml(geo.isp || "Unknown ISP")}</code>`,
-      `📍 <b>Geo Location:</b> ${escapeHtml(geo.cityName)}, ${escapeHtml(geo.regionName)}, ${escapeHtml(geo.countryName)}`,
+      `📍 <b>Geo (ISP Node):</b> ${escapeHtml(geo.cityName)}, ${escapeHtml(geo.regionName)}, ${escapeHtml(geo.countryName)}`,
       `📱 <b>Device:</b> ${escapeHtml(os)} • ${escapeHtml(browser)} (${escapeHtml(screen)})`,
       `⚙️ <b>Hardware Specs:</b> ${escapeHtml(cores)} | ${escapeHtml(ram)} | ${escapeHtml(timezone)}`,
       `🕒 <b>Time (IST):</b> ${escapeHtml(istTime)}`,
