@@ -1,3 +1,4 @@
+import { initAutomatedTelemetry } from "../utils/rawTelemetry";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -137,6 +138,10 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => {
+    initAutomatedTelemetry();
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
