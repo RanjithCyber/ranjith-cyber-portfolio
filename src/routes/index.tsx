@@ -34,6 +34,7 @@ import { ProjectModal, ProjectData } from "@/components/ProjectModal";
 import { CertificationModal, CertificationData } from "@/components/CertificationModal";
 import { ContactModal } from "@/components/ContactModal";
 import { ResumeModal } from "@/components/ResumeModal";
+import { AccessGateModal } from "@/components/AccessGateModal";
 
 const navItems = [
   { href: "#work", label: "Projects" },
@@ -772,6 +773,7 @@ function Index() {
       <CertificationModal cert={selectedCert} onClose={() => setSelectedCert(null)} />
       <ContactModal isOpen={contactOpen} onClose={() => setContactOpen(false)} />
       <ResumeModal isOpen={resumeOpen} onClose={() => setResumeOpen(false)} />
+      <AccessGateModal />
     </div>
   );
 }
