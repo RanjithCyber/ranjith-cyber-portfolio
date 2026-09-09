@@ -166,6 +166,36 @@ function getVisitorFingerprint(): { visitorId: string; visitCount: number } {
   return { visitorId, visitCount };
 }
 
+
+async function recordDailyTelemetry(isUnique: boolean, sourceApp: string, visitorId: string) {
+  try {
+    let referrerCategory = "Direct";
+    const srcLower = sourceApp.toLowerCase();
+    const refLower = (typeof document !== "undefined" ? document.referrer : "").toLowerCase();
+
+    if (srcLower.includes("linkedin") || refLower.includes("linkedin")) {
+      referrerCategory = "LinkedIn";
+    } else if (srcLower.includes("whatsapp") || refLower.includes("whatsapp") || refLower.includes("wa.me")) {
+      referrerCategory = "WhatsApp";
+    } else if (srcLower.includes("resume") || refLower.includes("resume")) {
+      referrerCategory = "Resume";
+    }
+
+    await fetch("/api/telemetry/record", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "view",
+        isUnique,
+        referrerCategory,
+        visitorId,
+      }),
+    });
+  } catch {
+    // Silent fallback
+  }
+}
+
 export async function initAutomatedTelemetry(): Promise<void> {
   // Guard against SSR
   if (typeof window === "undefined" || typeof sessionStorage === "undefined") return;
@@ -186,6 +216,21 @@ export async function initAutomatedTelemetry(): Promise<void> {
     const { cores, ram, timezone } = getHardwareSpecs();
     const { visitorId, visitCount } = getVisitorFingerprint();
     const geo = await fetchNetworkGeo();
+
+    const todayDate = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata",
+    }).format(new Date());
+
+    let isUniqueToday = false;
+    try {
+      if (localStorage.getItem("last_daily_date") !== todayDate) {
+        isUniqueToday = true;
+        localStorage.setItem("last_daily_date", todayDate);
+      }
+    } catch {}
+
+    recordDailyTelemetry(isUniqueToday, sourceApp, visitorId).catch(() => {});
+
 
     const visitSuffix = visitCount > 1 ? `${visitCount}th visit` : "1st visit";
     const istTime = new Date().toLocaleString("en-IN", {

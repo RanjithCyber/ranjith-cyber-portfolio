@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { X, Download, Printer, FileText, CheckCircle2, Briefcase, GraduationCap, Award, Shield } from "lucide-react";
 import ranjithPhoto from "@/assets/ranjith.jpg";
 
@@ -7,6 +8,18 @@ interface ResumeModalProps {
 }
 
 export function ResumeModal({ isOpen, onClose }: ResumeModalProps) {
+  useEffect(() => {
+    if (isOpen) {
+      try {
+        fetch("/api/telemetry/record", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "resume" }),
+        }).catch(() => {});
+      } catch {}
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handlePrint = () => {
