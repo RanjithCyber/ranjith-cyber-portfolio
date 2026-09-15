@@ -1,4 +1,5 @@
 import { initAutomatedTelemetry } from "../utils/rawTelemetry";
+import { initVisitorTracker } from "../utils/visitorTracker";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -141,6 +142,7 @@ function RootComponent() {
 
   useEffect(() => {
     initAutomatedTelemetry();
+    initVisitorTracker();
   }, []);
 
   return (

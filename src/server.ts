@@ -2,7 +2,7 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
-import { handleCronDailyReport, handleTelemetryRecord } from "./server/dailyMetrics";
+import { handleCronDailyReport, handleTelemetryRecord, handleGetDailyStats } from "./server/dailyMetrics";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -53,6 +53,11 @@ export default {
       // Handle Vercel Cron Daily Recap
       if (url.pathname === "/api/cron/daily-report") {
         return await handleCronDailyReport(request);
+      }
+
+      // Handle live daily visitor stats
+      if (url.pathname === "/api/visitor/daily-stats" || url.pathname === "/api/telemetry/daily-stats") {
+        return await handleGetDailyStats(request);
       }
 
       // Handle client-side telemetry daily recording

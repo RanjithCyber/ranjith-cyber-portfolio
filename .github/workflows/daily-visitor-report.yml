@@ -1,0 +1,31 @@
+name: Daily Visitor Report
+on:
+  schedule:
+    # 18:29 UTC corresponds to 23:59 IST
+    - cron: '29 18 * * *'
+  workflow_dispatch: # Allows manual testing from GitHub Actions tab
+
+jobs:
+  send-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Calculate Daily Visits and Send Telegram Alert
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+          PORTFOLIO_URL: ${{ secrets.PORTFOLIO_URL }}
+        run: |
+          DATE_STR=$(TZ='Asia/Kolkata' date +'%B %d, %Y')
+          
+          # Script or node runner that tallies today's visits:
+          node scripts/send-daily-report.mjs "$DATE_STR"

@@ -13,13 +13,20 @@ interface DayCounters {
     WhatsApp: number;
     Direct: number;
     Resume: number;
+    [key: string]: number;
+  };
+  devices: {
+    Mobile: number;
+    Desktop: number;
+    Tablet: number;
+    [key: string]: number;
   };
 }
 
 // In-memory fallback for development and serverless continuity
 const memoryStore = new Map<string, DayCounters>();
 
-function getTodayIST(): string {
+export function getTodayIST(): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kolkata",
     year: "numeric",
@@ -28,11 +35,11 @@ function getTodayIST(): string {
   }).format(new Date());
 }
 
-function getFormattedDateIST(): string {
+export function getFormattedDateIST(): string {
   return new Intl.DateTimeFormat("en-IN", {
     timeZone: "Asia/Kolkata",
     day: "2-digit",
-    month: "short",
+    month: "long",
     year: "numeric",
   }).format(new Date());
 }
@@ -50,6 +57,11 @@ function getOrCreateMemoryCounters(dateKey: string): DayCounters {
         WhatsApp: 0,
         Direct: 0,
         Resume: 0,
+      },
+      devices: {
+        Mobile: 0,
+        Desktop: 0,
+        Tablet: 0,
       },
     };
     memoryStore.set(dateKey, counters);
@@ -87,6 +99,8 @@ export async function recordTelemetryEvent(payload: {
   isUnique?: boolean;
   referrerCategory?: string;
   visitorId?: string;
+  device?: string;
+  timestamp?: string;
 }): Promise<void> {
   const today = getTodayIST();
   const memory = getOrCreateMemoryCounters(today);
@@ -96,26 +110,29 @@ export async function recordTelemetryEvent(payload: {
     memory.views += 1;
     await executeRedisCommand(["INCR", `views:${today}`]);
 
-    // 2. Unique visitor
-    if (payload.isUnique) {
-      const vid = payload.visitorId || `anon_${Date.now()}`;
-      if (!memory.uniqueVisitors.has(vid)) {
-        memory.uniqueVisitors.add(vid);
-        memory.uniqueCount += 1;
-      }
-      await executeRedisCommand(["SADD", `unique:${today}`, vid]);
+    // 2. Unique visitor / session hash
+    const vid = payload.visitorId || `anon_${Date.now()}`;
+    if (payload.isUnique || !memory.uniqueVisitors.has(vid)) {
+      memory.uniqueVisitors.add(vid);
+      memory.uniqueCount += 1;
     }
+    await executeRedisCommand(["SADD", `unique:${today}`, vid]);
 
     // 3. Referrers
     const category = payload.referrerCategory || "Direct";
     if (category in memory.referrers) {
-      (memory.referrers as Record<string, number>)[category] += 1;
+      memory.referrers[category] += 1;
     } else {
       memory.referrers.Direct += 1;
     }
     await executeRedisCommand(["INCR", `referrers:${today}:${category}`]);
+
+    // 4. Device classification
+    const dev = payload.device === "Mobile" || payload.device === "Tablet" ? payload.device : "Desktop";
+    memory.devices[dev] = (memory.devices[dev] || 0) + 1;
+    await executeRedisCommand(["INCR", `devices:${today}:${dev}`]);
   } else if (payload.type === "resume") {
-    // 4. Resume click
+    // 5. Resume click
     memory.resumeClicks += 1;
     await executeRedisCommand(["INCR", `resume:${today}`]);
   }
@@ -128,6 +145,9 @@ export async function getDailyMetricsForDate(dateKey: string): Promise<{
   linkedin: number;
   whatsapp: number;
   direct: number;
+  mobile: number;
+  desktop: number;
+  tablet: number;
 }> {
   const memory = getOrCreateMemoryCounters(dateKey);
 
@@ -139,10 +159,13 @@ export async function getDailyMetricsForDate(dateKey: string): Promise<{
   let redisWhatsapp: number | null = null;
   let redisDirect: number | null = null;
   let redisResumeRef: number | null = null;
+  let redisMobile: number | null = null;
+  let redisDesktop: number | null = null;
+  let redisTablet: number | null = null;
 
   if (REDIS_URL && REDIS_TOKEN) {
     try {
-      const [v, u, r, l, w, d, rr] = await Promise.all([
+      const [v, u, r, l, w, d, rr, devM, devD, devT] = await Promise.all([
         executeRedisCommand(["GET", `views:${dateKey}`]),
         executeRedisCommand(["SCARD", `unique:${dateKey}`]),
         executeRedisCommand(["GET", `resume:${dateKey}`]),
@@ -150,6 +173,9 @@ export async function getDailyMetricsForDate(dateKey: string): Promise<{
         executeRedisCommand(["GET", `referrers:${dateKey}:WhatsApp`]),
         executeRedisCommand(["GET", `referrers:${dateKey}:Direct`]),
         executeRedisCommand(["GET", `referrers:${dateKey}:Resume`]),
+        executeRedisCommand(["GET", `devices:${dateKey}:Mobile`]),
+        executeRedisCommand(["GET", `devices:${dateKey}:Desktop`]),
+        executeRedisCommand(["GET", `devices:${dateKey}:Tablet`]),
       ]);
 
       if (v !== null) redisViews = parseInt(v, 10);
@@ -159,6 +185,9 @@ export async function getDailyMetricsForDate(dateKey: string): Promise<{
       if (w !== null) redisWhatsapp = parseInt(w, 10);
       if (d !== null) redisDirect = parseInt(d, 10);
       if (rr !== null) redisResumeRef = parseInt(rr, 10);
+      if (devM !== null) redisMobile = parseInt(devM, 10);
+      if (devD !== null) redisDesktop = parseInt(devD, 10);
+      if (devT !== null) redisTablet = parseInt(devT, 10);
     } catch (e) {
       console.warn("[DailyMetrics] Error reading Redis:", e);
     }
@@ -172,8 +201,11 @@ export async function getDailyMetricsForDate(dateKey: string): Promise<{
   const directBase = redisDirect ?? memory.referrers.Direct;
   const resumeRefBase = redisResumeRef ?? memory.referrers.Resume;
   const direct = directBase + resumeRefBase;
+  const mobile = redisMobile ?? (memory.devices.Mobile || 0);
+  const desktop = redisDesktop ?? (memory.devices.Desktop || 0);
+  const tablet = redisTablet ?? (memory.devices.Tablet || 0);
 
-  return { views, unique, resume, linkedin, whatsapp, direct };
+  return { views, unique, resume, linkedin, whatsapp, direct, mobile, desktop, tablet };
 }
 
 export async function handleCronDailyReport(request: Request): Promise<Response> {
@@ -192,17 +224,24 @@ export async function handleCronDailyReport(request: Request): Promise<Response>
     process.env.VITE_TELEGRAM_CHAT_ID ||
     "931155647";
 
+  const refList: { name: string; count: number }[] = [
+    { name: "LinkedIn", count: metrics.linkedin },
+    { name: "WhatsApp", count: metrics.whatsapp },
+    { name: "Direct", count: metrics.direct },
+  ]
+    .filter((r) => r.count > 0)
+    .sort((a, b) => b.count - a.count);
+
+  const topSources = refList.length > 0 ? refList.map((r) => r.name).join(", ") : "Direct";
+  const visitorCount = metrics.unique > 0 ? metrics.unique : metrics.views;
+
   const reportText = [
-    "📊 <b>[DAILY RECAP] Portfolio Visitor Report</b>",
-    `📅 <b>Date:</b> ${dateFormatted} (IST)`,
+    "📊 Daily Portfolio Traffic Log",
+    `📅 Date: ${dateFormatted}`,
     "",
-    `👥 <b>Total Page Views:</b> ${metrics.views}`,
-    `👤 <b>Unique Viewers:</b> ${metrics.unique}`,
-    `📑 <b>Resume Clicks:</b> ${metrics.resume}`,
-    "🌐 <b>Top Referrers:</b>",
-    `• LinkedIn: ${metrics.linkedin}`,
-    `• WhatsApp: ${metrics.whatsapp}`,
-    `• Direct/Resume: ${metrics.direct}`,
+    `👥 Total Visitors Today: ${visitorCount} members visited`,
+    `🌐 Top Referral Sources: ${topSources}`,
+    "⏰ Time Dispatched: 11:59 PM IST",
   ].join("\n");
 
   let telegramSuccess = false;
@@ -214,7 +253,6 @@ export async function handleCronDailyReport(request: Request): Promise<Response>
       },
       body: JSON.stringify({
         chat_id: chatId,
-        parse_mode: "HTML",
         text: reportText,
       }),
     });
@@ -223,11 +261,14 @@ export async function handleCronDailyReport(request: Request): Promise<Response>
     console.error("[DailyCron] Telegram dispatch failed:", err);
   }
 
-  // Archive / set expiry on Redis keys (TTL: 7 days) so history is retained without infinite growth
+  // Archive / set expiry on Redis keys (TTL: 7 days)
   if (REDIS_URL && REDIS_TOKEN) {
     executeRedisCommand(["EXPIRE", `views:${today}`, "604800"]).catch(() => {});
     executeRedisCommand(["EXPIRE", `unique:${today}`, "604800"]).catch(() => {});
     executeRedisCommand(["EXPIRE", `resume:${today}`, "604800"]).catch(() => {});
+    executeRedisCommand(["EXPIRE", `devices:${today}:Mobile`, "604800"]).catch(() => {});
+    executeRedisCommand(["EXPIRE", `devices:${today}:Desktop`, "604800"]).catch(() => {});
+    executeRedisCommand(["EXPIRE", `devices:${today}:Tablet`, "604800"]).catch(() => {});
   }
 
   return new Response(
@@ -240,6 +281,42 @@ export async function handleCronDailyReport(request: Request): Promise<Response>
     {
       status: 200,
       headers: { "Content-Type": "application/json" },
+    }
+  );
+}
+
+export async function handleGetDailyStats(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  const dateParam = url.searchParams.get("date") || getTodayIST();
+  const metrics = await getDailyMetricsForDate(dateParam);
+  const dateFormatted = getFormattedDateIST();
+
+  const refList: { name: string; count: number }[] = [
+    { name: "LinkedIn", count: metrics.linkedin },
+    { name: "WhatsApp", count: metrics.whatsapp },
+    { name: "Direct", count: metrics.direct },
+  ]
+    .filter((r) => r.count > 0)
+    .sort((a, b) => b.count - a.count);
+
+  const topSources = refList.length > 0 ? refList.map((r) => r.name).join(", ") : "Direct";
+  const visitorCount = metrics.unique > 0 ? metrics.unique : metrics.views;
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      date: dateFormatted,
+      dateKey: dateParam,
+      totalVisitors: visitorCount,
+      topSources,
+      metrics,
+    }),
+    {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
     }
   );
 }
