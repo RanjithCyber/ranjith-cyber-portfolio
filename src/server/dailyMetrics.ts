@@ -44,6 +44,67 @@ export function getFormattedDateIST(): string {
   }).format(new Date());
 }
 
+/**
+ * Calculates the exact target date for end-of-day (11:59 PM IST) reporting.
+ * If executed in early morning hours (00:00 - 11:59 IST) due to runner delay,
+ * automatically maps to yesterday's completed day.
+ */
+export function getReportTargetDateInfo(overrideDate?: string): { dateKey: string; dateFormatted: string } {
+  if (overrideDate && overrideDate.trim()) {
+    const key = overrideDate.trim();
+    const parts = key.split("-");
+    let formatted = key;
+    if (parts.length === 3) {
+      const [y, m, d] = parts.map(Number);
+      if (y && m && d) {
+        const dt = new Date(Date.UTC(y, m - 1, d));
+        formatted = new Intl.DateTimeFormat("en-IN", {
+          timeZone: "Asia/Kolkata",
+          day: "2-digit",
+          month: "long",
+          year: "numeric",
+        }).format(dt);
+      }
+    }
+    return { dateKey: key, dateFormatted: formatted };
+  }
+
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    hour12: false,
+  }).formatToParts(now);
+
+  const hourStr = parts.find((p) => p.type === "hour")?.value || "0";
+  const hour = parseInt(hourStr, 10);
+
+  let targetDate = new Date(now);
+  // If running early AM (00:00 - 11:59 IST) from a delayed cron execution, use yesterday's date
+  if (hour < 12) {
+    targetDate.setDate(targetDate.getDate() - 1);
+  }
+
+  const dateKey = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(targetDate);
+
+  const dateFormatted = new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(targetDate);
+
+  return { dateKey, dateFormatted };
+}
+
 function getOrCreateMemoryCounters(dateKey: string): DayCounters {
   let counters = memoryStore.get(dateKey);
   if (!counters) {
@@ -209,10 +270,30 @@ export async function getDailyMetricsForDate(dateKey: string): Promise<{
 }
 
 export async function handleCronDailyReport(request: Request): Promise<Response> {
-  const today = getTodayIST();
-  const dateFormatted = getFormattedDateIST();
+  const url = new URL(request.url);
+  const isForce = url.searchParams.get("force") === "true";
+  const dateParam = url.searchParams.get("date") || undefined;
 
-  const metrics = await getDailyMetricsForDate(today);
+  const { dateKey, dateFormatted } = getReportTargetDateInfo(dateParam);
+
+  // Deduping check: Prevent duplicate dispatches if report was already sent today
+  if (!isForce && REDIS_URL && REDIS_TOKEN) {
+    const alreadySent = await executeRedisCommand(["GET", `report_sent:${dateKey}`]);
+    if (alreadySent === "1" || alreadySent === "true") {
+      console.log(`[DailyReport] Report for ${dateKey} already dispatched at 11:59 PM IST. Skipping duplicate.`);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          skipped: true,
+          message: `Report for ${dateKey} was already dispatched at 11:59 PM IST.`,
+          date: dateFormatted,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  }
+
+  const metrics = await getDailyMetricsForDate(dateKey);
 
   const token =
     process.env.TELEGRAM_BOT_TOKEN ||
@@ -224,24 +305,30 @@ export async function handleCronDailyReport(request: Request): Promise<Response>
     process.env.VITE_TELEGRAM_CHAT_ID ||
     "931155647";
 
-  const refList: { name: string; count: number }[] = [
-    { name: "LinkedIn", count: metrics.linkedin },
-    { name: "WhatsApp", count: metrics.whatsapp },
-    { name: "Direct", count: metrics.direct },
-  ]
-    .filter((r) => r.count > 0)
-    .sort((a, b) => b.count - a.count);
-
-  const topSources = refList.length > 0 ? refList.map((r) => r.name).join(", ") : "Direct";
   const visitorCount = metrics.unique > 0 ? metrics.unique : metrics.views;
 
   const reportText = [
-    "📊 Daily Portfolio Traffic Log",
+    "📊 DAILY PORTFOLIO TRAFFIC REPORT",
     `📅 Date: ${dateFormatted}`,
+    "⏰ Scheduled Time: 11:59 PM IST",
     "",
-    `👥 Total Visitors Today: ${visitorCount} members visited`,
-    `🌐 Top Referral Sources: ${topSources}`,
-    "⏰ Time Dispatched: 11:59 PM IST",
+    `👥 TOTAL VISITORS TODAY: ${visitorCount} members visited`,
+    `👁️ Total Page Views: ${metrics.views}`,
+    "",
+    "🌐 REFERRAL SOURCES (Categorized):",
+    `  • LinkedIn: ${metrics.linkedin}`,
+    `  • WhatsApp: ${metrics.whatsapp}`,
+    `  • Direct / Other: ${metrics.direct}`,
+    "",
+    "📱 DEVICE BREAKDOWN (Categorized):",
+    `  • Mobile: ${metrics.mobile}`,
+    `  • Desktop: ${metrics.desktop}`,
+    `  • Tablet: ${metrics.tablet}`,
+    "",
+    "📄 ENGAGEMENT / INTERACTIONS:",
+    `  • Resume Downloads / Views: ${metrics.resume}`,
+    "",
+    "✅ End-of-Day Traffic Summary logged.",
   ].join("\n");
 
   let telegramSuccess = false;
@@ -261,14 +348,15 @@ export async function handleCronDailyReport(request: Request): Promise<Response>
     console.error("[DailyCron] Telegram dispatch failed:", err);
   }
 
-  // Archive / set expiry on Redis keys (TTL: 7 days)
-  if (REDIS_URL && REDIS_TOKEN) {
-    executeRedisCommand(["EXPIRE", `views:${today}`, "604800"]).catch(() => {});
-    executeRedisCommand(["EXPIRE", `unique:${today}`, "604800"]).catch(() => {});
-    executeRedisCommand(["EXPIRE", `resume:${today}`, "604800"]).catch(() => {});
-    executeRedisCommand(["EXPIRE", `devices:${today}:Mobile`, "604800"]).catch(() => {});
-    executeRedisCommand(["EXPIRE", `devices:${today}:Desktop`, "604800"]).catch(() => {});
-    executeRedisCommand(["EXPIRE", `devices:${today}:Tablet`, "604800"]).catch(() => {});
+  // Mark report as sent in Redis with 24-hour TTL to prevent late duplicate runs
+  if (telegramSuccess && REDIS_URL && REDIS_TOKEN) {
+    executeRedisCommand(["SET", `report_sent:${dateKey}`, "1", "EX", "86400"]).catch(() => {});
+    executeRedisCommand(["EXPIRE", `views:${dateKey}`, "604800"]).catch(() => {});
+    executeRedisCommand(["EXPIRE", `unique:${dateKey}`, "604800"]).catch(() => {});
+    executeRedisCommand(["EXPIRE", `resume:${dateKey}`, "604800"]).catch(() => {});
+    executeRedisCommand(["EXPIRE", `devices:${dateKey}:Mobile`, "604800"]).catch(() => {});
+    executeRedisCommand(["EXPIRE", `devices:${dateKey}:Desktop`, "604800"]).catch(() => {});
+    executeRedisCommand(["EXPIRE", `devices:${dateKey}:Tablet`, "604800"]).catch(() => {});
   }
 
   return new Response(
@@ -276,6 +364,7 @@ export async function handleCronDailyReport(request: Request): Promise<Response>
       success: true,
       report_sent: telegramSuccess,
       date: dateFormatted,
+      dateKey,
       metrics,
     }),
     {
@@ -287,9 +376,9 @@ export async function handleCronDailyReport(request: Request): Promise<Response>
 
 export async function handleGetDailyStats(request: Request): Promise<Response> {
   const url = new URL(request.url);
-  const dateParam = url.searchParams.get("date") || getTodayIST();
-  const metrics = await getDailyMetricsForDate(dateParam);
-  const dateFormatted = getFormattedDateIST();
+  const dateParam = url.searchParams.get("date") || undefined;
+  const { dateKey, dateFormatted } = getReportTargetDateInfo(dateParam);
+  const metrics = await getDailyMetricsForDate(dateKey);
 
   const refList: { name: string; count: number }[] = [
     { name: "LinkedIn", count: metrics.linkedin },
@@ -306,7 +395,7 @@ export async function handleGetDailyStats(request: Request): Promise<Response> {
     JSON.stringify({
       success: true,
       date: dateFormatted,
-      dateKey: dateParam,
+      dateKey,
       totalVisitors: visitorCount,
       topSources,
       metrics,
@@ -343,3 +432,4 @@ export async function handleTelemetryRecord(request: Request): Promise<Response>
     });
   }
 }
+

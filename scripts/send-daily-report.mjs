@@ -99,42 +99,93 @@ async function fetchStatsFromRedis(dateKey) {
   return null;
 }
 
-async function main() {
-  console.log("🚀 Starting Daily Visitor Reporter...");
+function getReportTargetDateInfo(overrideArg) {
+  if (overrideArg && overrideArg.trim()) {
+    const arg = overrideArg.trim();
+    if (arg.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [y, m, d] = arg.split("-").map(Number);
+      const dt = new Date(Date.UTC(y, m - 1, d));
+      const formatted = new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      }).format(dt);
+      return { dateKey: arg, dateFormatted: formatted };
+    }
+    return { dateKey: arg, dateFormatted: arg };
+  }
 
-  // 1. Resolve date strings
-  const todayKey = new Intl.DateTimeFormat("en-CA", {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    hour12: false,
+  }).formatToParts(now);
+
+  const hourStr = parts.find((p) => p.type === "hour")?.value || "0";
+  const hour = parseInt(hourStr, 10);
+
+  let targetDate = new Date(now);
+  // If running early AM (00:00 - 11:59 IST) from a delayed cron execution, target yesterday's completed day
+  if (hour < 12) {
+    targetDate.setDate(targetDate.getDate() - 1);
+  }
+
+  const dateKey = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kolkata",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(new Date());
+  }).format(targetDate);
 
-  const argDate = process.argv[2];
-  let dateFormatted;
-  if (argDate && argDate.trim().length > 0) {
-    dateFormatted = argDate.trim();
-  } else {
-    dateFormatted = new Intl.DateTimeFormat("en-IN", {
-      timeZone: "Asia/Kolkata",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    }).format(new Date());
+  const dateFormatted = new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(targetDate);
+
+  return { dateKey, dateFormatted };
+}
+
+async function main() {
+  console.log("🚀 Starting Daily Visitor Reporter...");
+
+  const isForce = process.argv.includes("--force");
+  const nonFlagArgs = process.argv.slice(2).filter((a) => !a.startsWith("--"));
+  const argDate = nonFlagArgs.length > 0 ? nonFlagArgs[0] : undefined;
+  
+  const { dateKey, dateFormatted } = getReportTargetDateInfo(argDate);
+
+  console.log(`📅 Target Date: ${dateFormatted} (Key: ${dateKey})`);
+
+  // 1. Deduping Check: Prevent duplicate alerts if report was already sent today
+  if (!isForce && REDIS_URL && REDIS_TOKEN) {
+    const alreadySent = await executeRedisCommand(["GET", `report_sent:${dateKey}`]);
+    if (alreadySent === "1" || alreadySent === "true") {
+      console.log(`✓ Report for ${dateKey} was already dispatched at 11:59 PM IST. Skipping duplicate run.`);
+      process.exit(0);
+    }
   }
-
-  console.log(`📅 Target Date: ${dateFormatted} (Key: ${todayKey})`);
 
   // 2. Tally metrics from available data stores
   let totalVisitors = 0;
+  let pageViews = 0;
+  let resumeClicks = 0;
   let referrers = { LinkedIn: 0, WhatsApp: 0, Direct: 0 };
   let devices = { Mobile: 0, Desktop: 0, Tablet: 0 };
 
   // Attempt 1: Portfolio API endpoint
-  const apiStats = await fetchStatsFromPortfolioApi(todayKey);
+  const apiStats = await fetchStatsFromPortfolioApi(dateKey);
   if (apiStats && apiStats.metrics) {
     console.log("✓ Successfully loaded live metrics from Portfolio API");
     totalVisitors = apiStats.totalVisitors || apiStats.metrics.unique || apiStats.metrics.views || 0;
+    pageViews = apiStats.metrics.views || 0;
+    resumeClicks = apiStats.metrics.resume || 0;
     if (apiStats.metrics.linkedin !== undefined) referrers.LinkedIn = apiStats.metrics.linkedin;
     if (apiStats.metrics.whatsapp !== undefined) referrers.WhatsApp = apiStats.metrics.whatsapp;
     if (apiStats.metrics.direct !== undefined) referrers.Direct = apiStats.metrics.direct;
@@ -143,7 +194,7 @@ async function main() {
     if (apiStats.metrics.tablet !== undefined) devices.Tablet = apiStats.metrics.tablet;
   } else {
     // Attempt 2: Direct Redis query
-    const redisStats = await fetchStatsFromRedis(todayKey);
+    const redisStats = await fetchStatsFromRedis(dateKey);
     if (redisStats) {
       console.log("✓ Successfully loaded metrics from Redis");
       totalVisitors = redisStats.totalVisitors;
@@ -152,32 +203,37 @@ async function main() {
     }
   }
 
-  // 3. Determine top referral sources
-  const sortedReferrers = Object.entries(referrers)
-    .filter(([_, count]) => count > 0)
-    .sort((a, b) => b[1] - a[1])
-    .map(([source]) => source);
-
-  const topSources =
-    sortedReferrers.length > 0 ? sortedReferrers.join(", ") : "LinkedIn, WhatsApp, Direct";
-
   console.log(`👥 Computed Total Visitors: ${totalVisitors}`);
-  console.log(`🌐 Top Referral Sources: ${topSources}`);
   console.log(`📱 Device Breakdown: Mobile: ${devices.Mobile}, Desktop: ${devices.Desktop}, Tablet: ${devices.Tablet}`);
 
-  // 4. Format exact message as specified
+  // 3. Format complete categorized report message
   const messageText = [
-    "📊 Daily Portfolio Traffic Log",
+    "📊 DAILY PORTFOLIO TRAFFIC REPORT",
     `📅 Date: ${dateFormatted}`,
+    "⏰ Scheduled Time: 11:59 PM IST",
     "",
-    `👥 Total Visitors Today: ${totalVisitors} members visited`,
-    `🌐 Top Referral Sources: ${topSources}`,
-    "⏰ Time Dispatched: 11:59 PM IST",
+    `👥 TOTAL VISITORS TODAY: ${totalVisitors} members visited`,
+    `👁️ Total Page Views: ${pageViews}`,
+    "",
+    "🌐 REFERRAL SOURCES (Categorized):",
+    `  • LinkedIn: ${referrers.LinkedIn}`,
+    `  • WhatsApp: ${referrers.WhatsApp}`,
+    `  • Direct / Other: ${referrers.Direct}`,
+    "",
+    "📱 DEVICE BREAKDOWN (Categorized):",
+    `  • Mobile: ${devices.Mobile}`,
+    `  • Desktop: ${devices.Desktop}`,
+    `  • Tablet: ${devices.Tablet}`,
+    "",
+    "📄 ENGAGEMENT / INTERACTIONS:",
+    `  • Resume Downloads / Views: ${resumeClicks}`,
+    "",
+    "✅ End-of-Day Traffic Summary logged.",
   ].join("\n");
 
   console.log("\n✉️ Message Payload:\n" + messageText + "\n");
 
-  // 5. Dispatch Telegram Alert
+  // 4. Dispatch Telegram Alert
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
     console.error("❌ Telegram Bot Token or Chat ID not found.");
     process.exit(1);
@@ -198,6 +254,11 @@ async function main() {
     if (res.ok) {
       const responseData = await res.json();
       console.log("✅ Telegram Alert successfully dispatched! Message ID:", responseData.result?.message_id);
+
+      // Mark report as sent in Redis with 24-hour TTL to block late duplicate runner calls
+      if (REDIS_URL && REDIS_TOKEN) {
+        await executeRedisCommand(["SET", `report_sent:${dateKey}`, "1", "EX", "86400"]);
+      }
     } else {
       const errorText = await res.text();
       console.error(`❌ Failed to send Telegram alert. HTTP ${res.status}: ${errorText}`);
@@ -210,3 +271,4 @@ async function main() {
 }
 
 main();
+
