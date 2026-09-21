@@ -8,6 +8,7 @@ interface DayCounters {
   uniqueVisitors: Set<string>;
   uniqueCount: number;
   resumeClicks: number;
+  bots: number;
   referrers: {
     LinkedIn: number;
     WhatsApp: number;
@@ -46,10 +47,16 @@ export function getFormattedDateIST(): string {
 
 /**
  * Calculates the exact target date for end-of-day (11:59 PM IST) reporting.
- * If executed in early morning hours (00:00 - 11:59 IST) due to runner delay,
+ * If executed in early morning hours (00:00 - 03:59 IST) due to runner delay,
  * automatically maps to yesterday's completed day.
  */
-export function getReportTargetDateInfo(overrideDate?: string): { dateKey: string; dateFormatted: string } {
+export function getReportTargetDateInfo(overrideDate?: string): { dateKey: string; dateFormatted: string; executionTimeIST: string } {
+  const executionTimeIST = new Date().toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    dateStyle: "medium",
+    timeStyle: "medium",
+  });
+
   if (overrideDate && overrideDate.trim()) {
     const key = overrideDate.trim();
     const parts = key.split("-");
@@ -66,34 +73,22 @@ export function getReportTargetDateInfo(overrideDate?: string): { dateKey: strin
         }).format(dt);
       }
     }
-    return { dateKey: key, dateFormatted: formatted };
+    return { dateKey: key, dateFormatted: formatted, executionTimeIST };
   }
 
-  const now = new Date();
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-    hour: "numeric",
-    hour12: false,
-  }).formatToParts(now);
+  const nowIST = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+  const hour = nowIST.getHours();
 
-  const hourStr = parts.find((p) => p.type === "hour")?.value || "0";
-  const hour = parseInt(hourStr, 10);
-
-  let targetDate = new Date(now);
-  // If running early AM (00:00 - 11:59 IST) from a delayed cron execution, use yesterday's date
-  if (hour < 12) {
+  let targetDate = new Date(nowIST);
+  // If running in early AM (00:00 - 03:59 IST) from a delayed cron execution, use yesterday's date
+  if (hour < 4) {
     targetDate.setDate(targetDate.getDate() - 1);
   }
 
-  const dateKey = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(targetDate);
+  const year = targetDate.getFullYear();
+  const month = String(targetDate.getMonth() + 1).padStart(2, "0");
+  const day = String(targetDate.getDate()).padStart(2, "0");
+  const dateKey = `${year}-${month}-${day}`;
 
   const dateFormatted = new Intl.DateTimeFormat("en-IN", {
     timeZone: "Asia/Kolkata",
@@ -102,7 +97,7 @@ export function getReportTargetDateInfo(overrideDate?: string): { dateKey: strin
     year: "numeric",
   }).format(targetDate);
 
-  return { dateKey, dateFormatted };
+  return { dateKey, dateFormatted, executionTimeIST };
 }
 
 function getOrCreateMemoryCounters(dateKey: string): DayCounters {
@@ -113,6 +108,7 @@ function getOrCreateMemoryCounters(dateKey: string): DayCounters {
       uniqueVisitors: new Set<string>(),
       uniqueCount: 0,
       resumeClicks: 0,
+      bots: 0,
       referrers: {
         LinkedIn: 0,
         WhatsApp: 0,
@@ -162,9 +158,17 @@ export async function recordTelemetryEvent(payload: {
   visitorId?: string;
   device?: string;
   timestamp?: string;
+  isBot?: boolean;
 }): Promise<void> {
   const today = getTodayIST();
   const memory = getOrCreateMemoryCounters(today);
+
+  // Bot filtering: Exclude cloud crawlers & bots from human visitor tallies
+  if (payload.isBot) {
+    memory.bots = (memory.bots || 0) + 1;
+    await executeRedisCommand(["INCR", `bots:${today}`]);
+    return;
+  }
 
   if (payload.type === "view") {
     // 1. Page view
@@ -209,6 +213,7 @@ export async function getDailyMetricsForDate(dateKey: string): Promise<{
   mobile: number;
   desktop: number;
   tablet: number;
+  bots: number;
 }> {
   const memory = getOrCreateMemoryCounters(dateKey);
 
@@ -223,10 +228,11 @@ export async function getDailyMetricsForDate(dateKey: string): Promise<{
   let redisMobile: number | null = null;
   let redisDesktop: number | null = null;
   let redisTablet: number | null = null;
+  let redisBots: number | null = null;
 
   if (REDIS_URL && REDIS_TOKEN) {
     try {
-      const [v, u, r, l, w, d, rr, devM, devD, devT] = await Promise.all([
+      const [v, u, r, l, w, d, rr, devM, devD, devT, b] = await Promise.all([
         executeRedisCommand(["GET", `views:${dateKey}`]),
         executeRedisCommand(["SCARD", `unique:${dateKey}`]),
         executeRedisCommand(["GET", `resume:${dateKey}`]),
@@ -237,6 +243,7 @@ export async function getDailyMetricsForDate(dateKey: string): Promise<{
         executeRedisCommand(["GET", `devices:${dateKey}:Mobile`]),
         executeRedisCommand(["GET", `devices:${dateKey}:Desktop`]),
         executeRedisCommand(["GET", `devices:${dateKey}:Tablet`]),
+        executeRedisCommand(["GET", `bots:${dateKey}`]),
       ]);
 
       if (v !== null) redisViews = parseInt(v, 10);
@@ -249,6 +256,7 @@ export async function getDailyMetricsForDate(dateKey: string): Promise<{
       if (devM !== null) redisMobile = parseInt(devM, 10);
       if (devD !== null) redisDesktop = parseInt(devD, 10);
       if (devT !== null) redisTablet = parseInt(devT, 10);
+      if (b !== null) redisBots = parseInt(b, 10);
     } catch (e) {
       console.warn("[DailyMetrics] Error reading Redis:", e);
     }
@@ -265,8 +273,9 @@ export async function getDailyMetricsForDate(dateKey: string): Promise<{
   const mobile = redisMobile ?? (memory.devices.Mobile || 0);
   const desktop = redisDesktop ?? (memory.devices.Desktop || 0);
   const tablet = redisTablet ?? (memory.devices.Tablet || 0);
+  const bots = redisBots ?? (memory.bots || 0);
 
-  return { views, unique, resume, linkedin, whatsapp, direct, mobile, desktop, tablet };
+  return { views, unique, resume, linkedin, whatsapp, direct, mobile, desktop, tablet, bots };
 }
 
 export async function handleCronDailyReport(request: Request): Promise<Response> {
@@ -274,18 +283,18 @@ export async function handleCronDailyReport(request: Request): Promise<Response>
   const isForce = url.searchParams.get("force") === "true";
   const dateParam = url.searchParams.get("date") || undefined;
 
-  const { dateKey, dateFormatted } = getReportTargetDateInfo(dateParam);
+  const { dateKey, dateFormatted, executionTimeIST } = getReportTargetDateInfo(dateParam);
 
   // Deduping check: Prevent duplicate dispatches if report was already sent today
   if (!isForce && REDIS_URL && REDIS_TOKEN) {
     const alreadySent = await executeRedisCommand(["GET", `report_sent:${dateKey}`]);
     if (alreadySent === "1" || alreadySent === "true") {
-      console.log(`[DailyReport] Report for ${dateKey} already dispatched at 11:59 PM IST. Skipping duplicate.`);
+      console.log(`[DailyReport] Report for ${dateKey} already dispatched. Skipping duplicate.`);
       return new Response(
         JSON.stringify({
           success: true,
           skipped: true,
-          message: `Report for ${dateKey} was already dispatched at 11:59 PM IST.`,
+          message: `Report for ${dateKey} was already dispatched today.`,
           date: dateFormatted,
         }),
         { status: 200, headers: { "Content-Type": "application/json" } }
@@ -309,8 +318,8 @@ export async function handleCronDailyReport(request: Request): Promise<Response>
 
   const reportText = [
     "📊 DAILY PORTFOLIO TRAFFIC REPORT",
-    `📅 Date: ${dateFormatted}`,
-    "⏰ Scheduled Time: 11:59 PM IST",
+    `📅 Report Date: ${dateFormatted}`,
+    `⏰ Target: 11:59 PM IST (Executed at ${executionTimeIST})`,
     "",
     `👥 TOTAL VISITORS TODAY: ${visitorCount} members visited`,
     `👁️ Total Page Views: ${metrics.views}`,
@@ -328,6 +337,7 @@ export async function handleCronDailyReport(request: Request): Promise<Response>
     "📄 ENGAGEMENT / INTERACTIONS:",
     `  • Resume Downloads / Views: ${metrics.resume}`,
     "",
+    `🤖 BOT / CRAWLER PREVIEWS FILTERED: ${metrics.bots}`,
     "✅ End-of-Day Traffic Summary logged.",
   ].join("\n");
 
@@ -357,6 +367,7 @@ export async function handleCronDailyReport(request: Request): Promise<Response>
     executeRedisCommand(["EXPIRE", `devices:${dateKey}:Mobile`, "604800"]).catch(() => {});
     executeRedisCommand(["EXPIRE", `devices:${dateKey}:Desktop`, "604800"]).catch(() => {});
     executeRedisCommand(["EXPIRE", `devices:${dateKey}:Tablet`, "604800"]).catch(() => {});
+    executeRedisCommand(["EXPIRE", `bots:${dateKey}`, "604800"]).catch(() => {});
   }
 
   return new Response(

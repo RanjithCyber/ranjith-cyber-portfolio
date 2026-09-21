@@ -167,7 +167,53 @@ function getVisitorFingerprint(): { visitorId: string; visitCount: number } {
 }
 
 
-async function recordDailyTelemetry(isUnique: boolean, sourceApp: string, visitorId: string) {
+export interface BotDetectionResult {
+  isBot: boolean;
+  reason?: string;
+}
+
+export function detectBotOrCrawler(
+  ua: string,
+  ispOrg?: string,
+  extra?: { webdriver?: boolean; screenWidth?: number; screenHeight?: number; timezone?: string }
+): BotDetectionResult {
+  if (typeof navigator !== "undefined" && navigator.webdriver) {
+    return { isBot: true, reason: "Automated Webdriver signature" };
+  }
+  if (extra?.webdriver) {
+    return { isBot: true, reason: "Automated Webdriver signature" };
+  }
+
+  const botUaPattern = /bot|crawler|spider|headless|preview|bing|duckduck|slurp|facebookexternalhit|bytespider|gptbot|claudebot|axios|curl|fetch|node-fetch|lighthouse|puppeteer|selenium|phantom|playwright|prerender|monitor|uptimerobot|checker|postman|insomnia|headlesschrome/i;
+  if (ua && botUaPattern.test(ua)) {
+    return { isBot: true, reason: `Headless/Bot User-Agent (${ua.slice(0, 30)})` };
+  }
+
+  if (ispOrg) {
+    const cloudInfraPattern = /microsoft corporation|amazon|aws|google llc|cloudflare|digitalocean|oracle|hetzner|ovh|linode|vercel|fastly|akamai|datadog|m247|leaseweb|hostinger|shenzhen|alibaba|tencent|baidu|yandex/i;
+    if (cloudInfraPattern.test(ispOrg)) {
+      return { isBot: true, reason: `Cloud/Datacenter ISP (${ispOrg})` };
+    }
+  }
+
+  if (extra) {
+    if (typeof extra.screenWidth === "number" && typeof extra.screenHeight === "number") {
+      if (extra.screenWidth === 0 || extra.screenHeight === 0) {
+        return { isBot: true, reason: "Zero Screen Dimension" };
+      }
+    }
+  }
+
+  return { isBot: false };
+}
+
+async function recordDailyTelemetry(
+  isUnique: boolean,
+  sourceApp: string,
+  visitorId: string,
+  device: string,
+  isBot: boolean
+) {
   try {
     let referrerCategory = "Direct";
     const srcLower = sourceApp.toLowerCase();
@@ -189,6 +235,9 @@ async function recordDailyTelemetry(isUnique: boolean, sourceApp: string, visito
         isUnique,
         referrerCategory,
         visitorId,
+        device,
+        isBot,
+        timestamp: new Date().toISOString(),
       }),
     });
   } catch {
@@ -217,6 +266,19 @@ export async function initAutomatedTelemetry(): Promise<void> {
     const { visitorId, visitCount } = getVisitorFingerprint();
     const geo = await fetchNetworkGeo();
 
+    const ua = typeof navigator !== "undefined" ? navigator.userAgent || "" : "";
+    const screenWidth = typeof window !== "undefined" && window.screen ? window.screen.width : 0;
+    const screenHeight = typeof window !== "undefined" && window.screen ? window.screen.height : 0;
+    const webdriver = typeof navigator !== "undefined" ? navigator.webdriver : false;
+
+    const botResult = detectBotOrCrawler(ua, geo.isp, { webdriver, screenWidth, screenHeight, timezone });
+
+    const deviceType = /mobile|android|iphone|ipod/i.test(ua)
+      ? "Mobile"
+      : /ipad|tablet/i.test(ua)
+      ? "Tablet"
+      : "Desktop";
+
     const todayDate = new Intl.DateTimeFormat("en-CA", {
       timeZone: "Asia/Kolkata",
     }).format(new Date());
@@ -229,8 +291,14 @@ export async function initAutomatedTelemetry(): Promise<void> {
       }
     } catch {}
 
-    recordDailyTelemetry(isUniqueToday, sourceApp, visitorId).catch(() => {});
+    // Record to server telemetry endpoint
+    recordDailyTelemetry(isUniqueToday, sourceApp, visitorId, deviceType, botResult.isBot).catch(() => {});
 
+    // Filter out cloud crawlers & bots from triggering real-time Telegram alerts
+    if (botResult.isBot) {
+      console.log(`[SOC Telemetry] Suppressed real-time alert for cloud crawler/bot (${botResult.reason}).`);
+      return;
+    }
 
     const visitSuffix = visitCount > 1 ? `${visitCount}th visit` : "1st visit";
     const istTime = new Date().toLocaleString("en-IN", {
@@ -272,3 +340,4 @@ export async function initAutomatedTelemetry(): Promise<void> {
     console.warn("[SOC Telemetry] Auto dispatch error:", err);
   }
 }
+

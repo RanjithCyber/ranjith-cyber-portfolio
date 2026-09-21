@@ -149,6 +149,8 @@ function saveToLocalDailyLog(entry: DailyVisitLogEntry) {
   }
 }
 
+import { detectBotOrCrawler } from "./rawTelemetry";
+
 /**
  * Initializes visitor tracking for the current session.
  * Guaranteed to run only once per session using sessionStorage,
@@ -177,6 +179,10 @@ export async function initVisitorTracker(): Promise<void> {
     const { rawReferrer, category: referrerCategory } = getReferrerCategory();
     const device = getDeviceInfo();
     const page = window.location.pathname || "/";
+    const ua = typeof navigator !== "undefined" ? navigator.userAgent || "" : "";
+    const webdriver = typeof navigator !== "undefined" ? navigator.webdriver : false;
+
+    const botResult = detectBotOrCrawler(ua, undefined, { webdriver });
 
     // 2. Check if first time today across sessions for this browser
     let isUniqueToday = false;
@@ -213,6 +219,7 @@ export async function initVisitorTracker(): Promise<void> {
         referrerCategory,
         visitorId: sessionHash,
         device,
+        isBot: botResult.isBot,
         timestamp: visitEntry.timestamp,
       }),
     }).catch(() => {
@@ -222,3 +229,4 @@ export async function initVisitorTracker(): Promise<void> {
     console.warn("[VisitorTracker] Error during tracking execution:", err);
   }
 }
+
