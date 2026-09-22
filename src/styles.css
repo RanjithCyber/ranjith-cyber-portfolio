@@ -280,13 +280,13 @@
   }
 
   /* When resume modal is active, hide main site layout, header, footer, canvas, access gate */
-  body.resume-open > *:not(#root):not(#app),
   body.resume-open header,
   body.resume-open nav,
   body.resume-open main,
   body.resume-open footer,
   body.resume-open canvas,
-  body.resume-open [role="dialog"]:not(.print-resume-card),
+  body.resume-open .access-gate-modal,
+  body.resume-open .bg-cyber-grid,
   .no-print,
   .print\:hidden {
     display: none !important;
@@ -322,7 +322,47 @@
     border-radius: 0 !important;
   }
 
-  /* High contrast text for sharp print output */
+  /* Overwrite dark text variables with high contrast black/dark gray for print */
+  .print-resume-card h1 {
+    color: #000000 !important;
+    font-weight: 800 !important;
+  }
+
+  .print-resume-card h2 {
+    color: #111827 !important;
+    border-color: #e5e7eb !important;
+    font-weight: 700 !important;
+  }
+
+  .print-resume-card h3 {
+    color: #1f2937 !important;
+    font-weight: 700 !important;
+  }
+
+  .print-resume-card p,
+  .print-resume-card span,
+  .print-resume-card div,
+  .print-resume-card li {
+    color: #374151 !important;
+  }
+
+  .print-resume-card a {
+    color: #1d4ed8 !important;
+    text-decoration: underline !important;
+  }
+
+  .print-resume-card .text-ember,
+  .print-resume-card .text-ice,
+  .print-resume-card .text-mint {
+    color: #111827 !important;
+  }
+
+  .print-resume-card .bg-obsidian,
+  .print-resume-card .bg-panel {
+    background: #f9fafb !important;
+    border-color: #e5e7eb !important;
+  }
+
   .print-resume-card * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
