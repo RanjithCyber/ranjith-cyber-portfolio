@@ -12,9 +12,13 @@ const TELEGRAM_BOT_TOKEN =
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "931155647";
 
 const REDIS_URL =
-  process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+  process.env.UPSTASH_REDIS_REST_URL ||
+  process.env.KV_REST_API_URL ||
+  "https://master-ant-31189.upstash.io";
 const REDIS_TOKEN =
-  process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+  process.env.UPSTASH_REDIS_REST_TOKEN ||
+  process.env.KV_REST_API_TOKEN ||
+  "AYc1ACQgNmY5ZDYyNWUtYTcwOC00YTk5LWJmYzItOGY5ZDU0ZWY3YjU3";
 
 const PORTFOLIO_URL =
   process.env.PORTFOLIO_URL || "https://ranjith-cyber-portfolio.vercel.app";

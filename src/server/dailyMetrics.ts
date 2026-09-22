@@ -127,8 +127,17 @@ function getOrCreateMemoryCounters(dateKey: string): DayCounters {
 }
 
 // Upstash Redis helper
-const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+const REDIS_URL =
+  process.env.UPSTASH_REDIS_REST_URL ||
+  process.env.KV_REST_API_URL ||
+  process.env.VITE_UPSTASH_REDIS_REST_URL ||
+  "https://master-ant-31189.upstash.io";
+
+const REDIS_TOKEN =
+  process.env.UPSTASH_REDIS_REST_TOKEN ||
+  process.env.KV_REST_API_TOKEN ||
+  process.env.VITE_UPSTASH_REDIS_REST_TOKEN ||
+  "AYc1ACQgNmY5ZDYyNWUtYTcwOC00YTk5LWJmYzItOGY5ZDU0ZWY3YjU3";
 
 async function executeRedisCommand(command: (string | number)[]): Promise<any> {
   if (!REDIS_URL || !REDIS_TOKEN) return null;

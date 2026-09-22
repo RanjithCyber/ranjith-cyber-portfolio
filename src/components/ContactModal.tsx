@@ -6,6 +6,14 @@ interface ContactModalProps {
   onClose: () => void;
 }
 
+function escapeHtml(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 export function ContactModal({ isOpen, onClose }: ContactModalProps) {
   const [subject, setSubject] = useState("Hiring Opportunity / Full-time SOC Role");
   const [senderName, setSenderName] = useState("");
@@ -16,15 +24,63 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitted(true);
+
+    const token =
+      (typeof import.meta !== "undefined" && import.meta.env?.VITE_TELEGRAM_BOT_TOKEN) ||
+      "8632241749:AAHDQHTbNpRYp--Ql26DJR_q9_353FLpVCQ";
+
+    const chatId =
+      (typeof import.meta !== "undefined" && import.meta.env?.VITE_TELEGRAM_CHAT_ID) ||
+      "931155647";
+
+    const istTime = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+
+    const messageText = [
+      "📩 <b>[PORTFOLIO INQUIRY] New Contact Message Transmitted!</b>",
+      "",
+      `👤 <b>Sender Name:</b> ${escapeHtml(senderName)}`,
+      `✉️ <b>Sender Email:</b> <code>${escapeHtml(senderEmail)}</code>`,
+      `📌 <b>Purpose / Subject:</b> ${escapeHtml(subject)}`,
+      "",
+      `💬 <b>Message Details:</b>`,
+      `<i>${escapeHtml(message)}</i>`,
+      "",
+      `🕒 <b>Time (IST):</b> ${escapeHtml(istTime)}`,
+    ].join("\n");
+
+    try {
+      // 1. Dispatch real-time Telegram alert directly to Ranjith's phone
+      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          parse_mode: "HTML",
+          text: messageText,
+        }),
+      });
+
+      // 2. Increment interaction engagement metric in server telemetry
+      fetch("/api/telemetry/record", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "resume" }),
+      }).catch(() => {});
+    } catch (err) {
+      console.warn("[ContactModal] Telegram alert dispatch failed:", err);
+    }
+
+    // 3. Secondary mailto fallback
     setTimeout(() => {
-      // Trigger mailto link fallback
-      const mailtoUrl = `mailto:ranjith.csecyber@gmail.com?subject=${encodeURIComponent(
-        subject
-      )}&body=${encodeURIComponent(`From: ${senderName} (${senderEmail})\n\n${message}`)}`;
-      window.open(mailtoUrl, "_blank");
+      try {
+        const mailtoUrl = `mailto:ranjith.csecyber@gmail.com?subject=${encodeURIComponent(
+          subject
+        )}&body=${encodeURIComponent(`From: ${senderName} (${senderEmail})\n\n${message}`)}`;
+        window.open(mailtoUrl, "_blank");
+      } catch {}
     }, 600);
   };
 
