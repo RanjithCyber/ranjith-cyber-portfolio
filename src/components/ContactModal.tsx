@@ -72,16 +72,13 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
     } catch (err) {
       console.warn("[ContactModal] Telegram alert dispatch failed:", err);
     }
+  };
 
-    // 3. Secondary mailto fallback
-    setTimeout(() => {
-      try {
-        const mailtoUrl = `mailto:ranjith.csecyber@gmail.com?subject=${encodeURIComponent(
-          subject
-        )}&body=${encodeURIComponent(`From: ${senderName} (${senderEmail})\n\n${message}`)}`;
-        window.open(mailtoUrl, "_blank");
-      } catch {}
-    }, 600);
+  const handleOpenGmailWeb = () => {
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=ranjith.csecyber@gmail.com&su=${encodeURIComponent(
+      subject
+    )}&body=${encodeURIComponent(`From: ${senderName} (${senderEmail})\n\n${message}`)}`;
+    window.open(gmailUrl, "_blank");
   };
 
   const handleCopyEmail = () => {
@@ -222,13 +219,21 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
             </div>
             <h2 className="text-2xl font-bold text-ink">Transmission Confirmed!</h2>
             <p className="max-w-md mx-auto text-sm text-ink-muted">
-              Your message was drafted and your email client was opened to transmit directly to{" "}
-              <code className="text-ember">ranjith.csecyber@gmail.com</code>.
+              Your message was transmitted directly to Ranjith's alert hub. Ranjith will respond to{" "}
+              <code className="text-ember">{senderEmail || "your email"}</code> within 12 hours.
             </p>
-            <div className="pt-4">
+            <div className="pt-4 flex flex-wrap items-center justify-center gap-3">
               <button
+                type="button"
+                onClick={handleOpenGmailWeb}
+                className="inline-flex items-center gap-2 rounded-lg border border-ember/40 bg-ember/10 px-5 py-2.5 font-mono text-xs font-semibold text-ember hover:bg-ember/20 transition-colors"
+              >
+                <Mail size={14} /> Open in Gmail Web
+              </button>
+              <button
+                type="button"
                 onClick={handleReset}
-                className="rounded-lg bg-ember px-6 py-2.5 font-mono text-xs font-semibold text-obsidian hover:bg-ember/90"
+                className="rounded-lg bg-ember px-6 py-2.5 font-mono text-xs font-semibold text-obsidian hover:bg-ember/90 transition-colors"
               >
                 Return to Portfolio
               </button>
