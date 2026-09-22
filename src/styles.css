@@ -258,3 +258,85 @@
     transition: none !important;
   }
 }
+
+/* ==========================================================================
+   Print & PDF Export Optimization
+   ========================================================================== */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* When resume modal is active, hide main site layout, header, footer, canvas, access gate */
+  body.resume-open > *:not(#root):not(#app),
+  body.resume-open header,
+  body.resume-open nav,
+  body.resume-open main,
+  body.resume-open footer,
+  body.resume-open canvas,
+  body.resume-open [role="dialog"]:not(.print-resume-card),
+  .no-print,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Reset modal backdrop container for print */
+  .print-resume-backdrop {
+    position: static !important;
+    inset: auto !important;
+    z-index: auto !important;
+    display: block !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    backdrop-filter: none !important;
+    animation: none !important;
+  }
+
+  /* Resume card formatting for 1-2 page print layout */
+  .print-resume-card {
+    position: static !important;
+    max-height: none !important;
+    height: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  /* High contrast text for sharp print output */
+  .print-resume-card * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  .print-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  ::-webkit-scrollbar {
+    display: none !important;
+  }
+}
+

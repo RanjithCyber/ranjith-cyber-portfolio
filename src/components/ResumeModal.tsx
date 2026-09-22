@@ -10,6 +10,7 @@ interface ResumeModalProps {
 export function ResumeModal({ isOpen, onClose }: ResumeModalProps) {
   useEffect(() => {
     if (isOpen) {
+      document.body.classList.add("resume-open");
       try {
         fetch("/api/telemetry/record", {
           method: "POST",
@@ -17,7 +18,13 @@ export function ResumeModal({ isOpen, onClose }: ResumeModalProps) {
           body: JSON.stringify({ type: "resume" }),
         }).catch(() => {});
       } catch {}
+    } else {
+      document.body.classList.remove("resume-open");
     }
+
+    return () => {
+      document.body.classList.remove("resume-open");
+    };
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -27,8 +34,8 @@ export function ResumeModal({ isOpen, onClose }: ResumeModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-obsidian/85 p-4 backdrop-blur-md animate-fade-in print:bg-white print:p-0">
-      <div className="relative max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-line bg-panel p-6 shadow-2xl scrollbar-thin print:max-h-none print:w-full print:border-none print:bg-white print:p-0 print:text-black">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-obsidian/85 p-4 backdrop-blur-md animate-fade-in print-resume-backdrop print:bg-white print:p-0">
+      <div className="relative max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-line bg-panel p-6 shadow-2xl scrollbar-thin print-resume-card print:max-h-none print:w-full print:border-none print:bg-white print:p-0 print:text-black">
         {/* Modal Controls (Hidden when printing) */}
         <div className="flex items-center justify-between border-b border-line pb-4 print:hidden">
           <div className="flex items-center gap-2">
@@ -40,13 +47,13 @@ export function ResumeModal({ isOpen, onClose }: ResumeModalProps) {
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrint}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-obsidian px-3 py-1.5 font-mono text-xs text-ink-muted hover:text-ink transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-obsidian px-3 py-1.5 font-mono text-xs text-ink-muted hover:text-ink transition-colors cursor-pointer"
             >
               <Printer size={14} /> Print / Save PDF
             </button>
             <button
               onClick={onClose}
-              className="rounded-lg border border-line bg-obsidian p-1.5 text-ink-muted hover:text-ink transition-colors"
+              className="rounded-lg border border-line bg-obsidian p-1.5 text-ink-muted hover:text-ink transition-colors cursor-pointer"
               aria-label="Close dialog"
             >
               <X size={18} />
@@ -57,7 +64,7 @@ export function ResumeModal({ isOpen, onClose }: ResumeModalProps) {
         {/* Resume Content Body */}
         <div className="mt-6 space-y-6 text-ink print:text-black print:mt-0">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row items-start justify-between gap-4 border-b border-line/70 pb-6 print:border-black/20">
+          <div className="print-section flex flex-col sm:flex-row items-start justify-between gap-4 border-b border-line/70 pb-6 print:border-black/20">
             <div className="flex items-center gap-4">
               <img
                 src={ranjithPhoto}
@@ -94,7 +101,7 @@ export function ResumeModal({ isOpen, onClose }: ResumeModalProps) {
           </div>
 
           {/* Professional Summary */}
-          <div>
+          <div className="print-section">
             <h2 className="font-mono text-xs uppercase tracking-widest text-ember font-bold print:text-black border-b border-line/50 pb-1">
               Executive Profile
             </h2>
@@ -104,7 +111,7 @@ export function ResumeModal({ isOpen, onClose }: ResumeModalProps) {
           </div>
 
           {/* Education */}
-          <div>
+          <div className="print-section">
             <h2 className="font-mono text-xs uppercase tracking-widest text-ice font-bold print:text-black border-b border-line/50 pb-1 flex items-center gap-1.5">
               <GraduationCap size={14} /> Education &amp; Academic Distinction
             </h2>
@@ -127,7 +134,7 @@ export function ResumeModal({ isOpen, onClose }: ResumeModalProps) {
           </div>
 
           {/* Experience */}
-          <div>
+          <div className="print-section">
             <h2 className="font-mono text-xs uppercase tracking-widest text-ember font-bold print:text-black border-b border-line/50 pb-1 flex items-center gap-1.5">
               <Briefcase size={14} /> Practical Experience
             </h2>
@@ -175,7 +182,7 @@ export function ResumeModal({ isOpen, onClose }: ResumeModalProps) {
           </div>
 
           {/* Technical Skills Matrix */}
-          <div>
+          <div className="print-section">
             <h2 className="font-mono text-xs uppercase tracking-widest text-mint font-bold print:text-black border-b border-line/50 pb-1 flex items-center gap-1.5">
               <Shield size={14} /> Technical Skills & Tooling
             </h2>
@@ -196,7 +203,7 @@ export function ResumeModal({ isOpen, onClose }: ResumeModalProps) {
           </div>
 
           {/* Certifications & Research */}
-          <div>
+          <div className="print-section">
             <h2 className="font-mono text-xs uppercase tracking-widest text-ice font-bold print:text-black border-b border-line/50 pb-1 flex items-center gap-1.5">
               <Award size={14} /> Certifications & Global Research
             </h2>

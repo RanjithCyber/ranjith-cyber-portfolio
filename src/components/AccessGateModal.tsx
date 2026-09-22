@@ -56,7 +56,7 @@ export function AccessGateModal() {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 backdrop-blur-md animate-fade-in font-mono">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 backdrop-blur-md animate-fade-in font-mono print:hidden access-gate-modal">
       <div className="relative w-full max-w-md overflow-hidden rounded-xl border border-emerald-500/50 bg-[#0a0d14] p-6 sm:p-7 shadow-[0_0_80px_rgba(16,185,129,0.25)]">
         {/* Top Scanline Glow Accent */}
         <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_15px_#10b981]" />
