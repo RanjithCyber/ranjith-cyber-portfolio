@@ -243,9 +243,13 @@ function Index() {
   const closeMenu = () => setMenuOpen(false);
 
   return (
-    <div className="min-h-screen bg-obsidian text-ink antialiased bg-cyber-grid selection:bg-ember/30 selection:text-ink">
-      {/* Header Bar */}
-      <header className="sticky top-0 z-40 border-b border-line bg-obsidian/90 backdrop-blur-md">
+    <div className="relative min-h-screen bg-obsidian text-ink antialiased selection:bg-ember/30 selection:text-ink">
+      <div className="absolute inset-0 bg-cyber-grid pointer-events-none -z-10 print:hidden" />
+
+      {/* Main Site Content Layout (Hidden when printing resume) */}
+      <div className="print:hidden">
+        {/* Header Bar */}
+        <header className="sticky top-0 z-40 border-b border-line bg-obsidian/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-[1200px] items-center justify-between px-6 py-4">
           <a href="#top" className="flex items-center gap-3 group" onClick={closeMenu}>
             <span className="relative flex size-2.5">
@@ -767,6 +771,7 @@ function Index() {
           </div>
         </div>
       </footer>
+      </div>
 
       {/* Modals */}
       <ProjectModal project={selectedProject} onClose={() => setSelectedProject(null)} />

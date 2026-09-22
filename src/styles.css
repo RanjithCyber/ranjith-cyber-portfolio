@@ -262,7 +262,38 @@
 /* ==========================================================================
    Print & PDF Export Optimization
    ========================================================================== */
+/* ==========================================================================
+   Print & PDF Export Optimization
+   ========================================================================== */
 @media print {
+  :root, body, .print-resume-card {
+    --background: oklch(1 0 0) !important;
+    --foreground: oklch(0 0 0) !important;
+    --obsidian: #ffffff !important;
+    --panel: #ffffff !important;
+    --panel-2: #f3f4f6 !important;
+    --line: #d1d5db !important;
+    --ink: #000000 !important;
+    --ink-muted: #374151 !important;
+    --ember: #111827 !important;
+    --ember-deep: #111827 !important;
+    --mint: #111827 !important;
+    --ice: #111827 !important;
+
+    --color-background: #ffffff !important;
+    --color-foreground: #000000 !important;
+    --color-obsidian: #ffffff !important;
+    --color-panel: #ffffff !important;
+    --color-panel-2: #f3f4f6 !important;
+    --color-line: #d1d5db !important;
+    --color-ink: #000000 !important;
+    --color-ink-muted: #374151 !important;
+    --color-ember: #111827 !important;
+    --color-ember-deep: #111827 !important;
+    --color-mint: #111827 !important;
+    --color-ice: #111827 !important;
+  }
+
   @page {
     size: A4 portrait;
     margin: 10mm 12mm;
@@ -279,14 +310,14 @@
     overflow: visible !important;
   }
 
-  /* When resume modal is active, hide main site layout, header, footer, canvas, access gate */
-  body.resume-open header,
-  body.resume-open nav,
-  body.resume-open main,
-  body.resume-open footer,
-  body.resume-open canvas,
-  body.resume-open .access-gate-modal,
-  body.resume-open .bg-cyber-grid,
+  /* Hide main site layout, header, footer, canvas, access gate */
+  header,
+  nav,
+  main,
+  footer,
+  canvas,
+  .access-gate-modal,
+  .bg-cyber-grid,
   .no-print,
   .print\:hidden {
     display: none !important;
