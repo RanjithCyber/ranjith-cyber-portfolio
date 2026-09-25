@@ -13,16 +13,33 @@ function escapeHtml(text: string): string {
 }
 
 function getSourceApp(): string {
-  if (typeof navigator === "undefined") return "🔗 Direct / Shared Link";
+  if (typeof navigator === "undefined" || typeof window === "undefined") return "🔗 Direct / Shared Link";
   const ua = navigator.userAgent || "";
+  const rawReferrer = (typeof document !== "undefined" && document.referrer) || "";
+  const href = window.location.href || "";
+  const refLower = rawReferrer.toLowerCase();
+  const hrefLower = href.toLowerCase();
+  const searchParams = new URLSearchParams(window.location.search);
 
-  if (/whatsapp/i.test(ua)) return "💬 WhatsApp In-App Browser";
-  if (/linkedin/i.test(ua)) return "💼 LinkedIn In-App Browser";
+  if (
+    /linkedin/i.test(ua) ||
+    refLower.includes("linkedin") ||
+    refLower.includes("lnkd.in") ||
+    refLower.includes("licdn") ||
+    searchParams.has("lipi") ||
+    searchParams.has("li_fat_id") ||
+    hrefLower.includes("lipi=")
+  ) {
+    return "💼 LinkedIn Link / In-App";
+  }
+  if (/whatsapp/i.test(ua) || refLower.includes("whatsapp") || refLower.includes("wa.me")) {
+    return "💬 WhatsApp Link / In-App";
+  }
   if (/instagram/i.test(ua)) return "📷 Instagram In-App Browser";
   if (/telegram/i.test(ua)) return "✈️ Telegram In-App Browser";
 
-  if (typeof document !== "undefined" && document.referrer && document.referrer.trim().length > 0) {
-    return `🌐 Web Referrer: ${document.referrer}`;
+  if (rawReferrer.trim().length > 0) {
+    return `🌐 Web Referrer: ${rawReferrer}`;
   }
 
   return "🔗 Direct / Shared Link";
@@ -211,8 +228,18 @@ async function recordDailyTelemetry(
     let referrerCategory = "Direct";
     const srcLower = sourceApp.toLowerCase();
     const refLower = (typeof document !== "undefined" ? document.referrer : "").toLowerCase();
+    const href = (typeof window !== "undefined" ? window.location.href : "").toLowerCase();
+    const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
 
-    if (srcLower.includes("linkedin") || refLower.includes("linkedin")) {
+    if (
+      srcLower.includes("linkedin") ||
+      refLower.includes("linkedin") ||
+      refLower.includes("lnkd.in") ||
+      refLower.includes("licdn") ||
+      searchParams.has("lipi") ||
+      searchParams.has("li_fat_id") ||
+      href.includes("lipi=")
+    ) {
       referrerCategory = "LinkedIn";
     } else if (srcLower.includes("whatsapp") || refLower.includes("whatsapp") || refLower.includes("wa.me")) {
       referrerCategory = "WhatsApp";

@@ -61,17 +61,26 @@ function getReferrerCategory(): { rawReferrer: string; category: string } {
 
   const rawReferrer = document.referrer || "";
   const ua = (typeof navigator !== "undefined" && navigator.userAgent) || "";
+  const href = window.location.href || "";
   const refLower = rawReferrer.toLowerCase();
   const uaLower = ua.toLowerCase();
+  const hrefLower = href.toLowerCase();
   const searchParams = new URLSearchParams(window.location.search);
-  const utmSource = (searchParams.get("utm_source") || searchParams.get("ref") || "").toLowerCase();
+  const utmSource = (searchParams.get("utm_source") || searchParams.get("ref") || searchParams.get("source") || "").toLowerCase();
 
   if (
     refLower.includes("linkedin") ||
+    refLower.includes("lnkd.in") ||
+    refLower.includes("licdn") ||
     uaLower.includes("linkedin") ||
-    utmSource.includes("linkedin")
+    utmSource.includes("linkedin") ||
+    utmSource.includes("lnkd") ||
+    searchParams.has("lipi") ||
+    searchParams.has("li_fat_id") ||
+    searchParams.has("li_sv") ||
+    hrefLower.includes("lipi=")
   ) {
-    return { rawReferrer: rawReferrer || "LinkedIn", category: "LinkedIn" };
+    return { rawReferrer: rawReferrer || "LinkedIn Link", category: "LinkedIn" };
   }
 
   if (
