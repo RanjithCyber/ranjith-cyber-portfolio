@@ -21,7 +21,7 @@ const REDIS_TOKEN =
   "";
 
 const PORTFOLIO_URL =
-  process.env.PORTFOLIO_URL || "https://ranjith-cyber-portfolio.vercel.app";
+  process.env.PORTFOLIO_URL || "https://ranjithcyber.vercel.app";
 
 async function executeRedisCommand(command) {
   if (!REDIS_URL || !REDIS_TOKEN || REDIS_URL.includes("master-ant-31189.upstash.io")) return null;
