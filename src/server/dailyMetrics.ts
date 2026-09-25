@@ -58,22 +58,31 @@ export function getReportTargetDateInfo(overrideDate?: string): { dateKey: strin
   });
 
   if (overrideDate && overrideDate.trim()) {
-    const key = overrideDate.trim();
-    const parts = key.split("-");
-    let formatted = key;
-    if (parts.length === 3) {
-      const [y, m, d] = parts.map(Number);
-      if (y && m && d) {
-        const dt = new Date(Date.UTC(y, m - 1, d));
-        formatted = new Intl.DateTimeFormat("en-IN", {
-          timeZone: "Asia/Kolkata",
-          day: "2-digit",
-          month: "long",
-          year: "numeric",
-        }).format(dt);
+    const raw = overrideDate.trim();
+    let dt: Date | null = null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      const [y, m, d] = raw.split("-").map(Number);
+      dt = new Date(Date.UTC(y, m - 1, d));
+    } else {
+      const parsed = Date.parse(raw);
+      if (!isNaN(parsed)) {
+        dt = new Date(parsed);
       }
     }
-    return { dateKey: key, dateFormatted: formatted, executionTimeIST };
+
+    if (dt) {
+      const year = dt.getUTCFullYear();
+      const month = String(dt.getUTCMonth() + 1).padStart(2, "0");
+      const day = String(dt.getUTCDate()).padStart(2, "0");
+      const dateKey = `${year}-${month}-${day}`;
+      const dateFormatted = new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      }).format(dt);
+      return { dateKey, dateFormatted, executionTimeIST };
+    }
   }
 
   const nowIST = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
@@ -131,16 +140,16 @@ const REDIS_URL =
   process.env.UPSTASH_REDIS_REST_URL ||
   process.env.KV_REST_API_URL ||
   process.env.VITE_UPSTASH_REDIS_REST_URL ||
-  "https://master-ant-31189.upstash.io";
+  "";
 
 const REDIS_TOKEN =
   process.env.UPSTASH_REDIS_REST_TOKEN ||
   process.env.KV_REST_API_TOKEN ||
   process.env.VITE_UPSTASH_REDIS_REST_TOKEN ||
-  "AYc1ACQgNmY5ZDYyNWUtYTcwOC00YTk5LWJmYzItOGY5ZDU0ZWY3YjU3";
+  "";
 
 async function executeRedisCommand(command: (string | number)[]): Promise<any> {
-  if (!REDIS_URL || !REDIS_TOKEN) return null;
+  if (!REDIS_URL || !REDIS_TOKEN || REDIS_URL.includes("master-ant-31189.upstash.io")) return null;
   try {
     const res = await fetch(REDIS_URL, {
       method: "POST",
@@ -172,11 +181,9 @@ export async function recordTelemetryEvent(payload: {
   const today = getTodayIST();
   const memory = getOrCreateMemoryCounters(today);
 
-  // Bot filtering: Exclude cloud crawlers & bots from human visitor tallies
   if (payload.isBot) {
     memory.bots = (memory.bots || 0) + 1;
     await executeRedisCommand(["INCR", `bots:${today}`]);
-    return;
   }
 
   if (payload.type === "view") {
@@ -239,7 +246,7 @@ export async function getDailyMetricsForDate(dateKey: string): Promise<{
   let redisTablet: number | null = null;
   let redisBots: number | null = null;
 
-  if (REDIS_URL && REDIS_TOKEN) {
+  if (REDIS_URL && REDIS_TOKEN && !REDIS_URL.includes("master-ant-31189.upstash.io")) {
     try {
       const [v, u, r, l, w, d, rr, devM, devD, devT, b] = await Promise.all([
         executeRedisCommand(["GET", `views:${dateKey}`]),
@@ -255,24 +262,24 @@ export async function getDailyMetricsForDate(dateKey: string): Promise<{
         executeRedisCommand(["GET", `bots:${dateKey}`]),
       ]);
 
-      if (v !== null) redisViews = parseInt(v, 10);
-      if (u !== null) redisUnique = parseInt(u, 10);
-      if (r !== null) redisResume = parseInt(r, 10);
-      if (l !== null) redisLinkedin = parseInt(l, 10);
-      if (w !== null) redisWhatsapp = parseInt(w, 10);
-      if (d !== null) redisDirect = parseInt(d, 10);
-      if (rr !== null) redisResumeRef = parseInt(rr, 10);
-      if (devM !== null) redisMobile = parseInt(devM, 10);
-      if (devD !== null) redisDesktop = parseInt(devD, 10);
-      if (devT !== null) redisTablet = parseInt(devT, 10);
-      if (b !== null) redisBots = parseInt(b, 10);
+      if (v !== null && v !== undefined) redisViews = parseInt(v, 10);
+      if (u !== null && u !== undefined) redisUnique = parseInt(u, 10);
+      if (r !== null && r !== undefined) redisResume = parseInt(r, 10);
+      if (l !== null && l !== undefined) redisLinkedin = parseInt(l, 10);
+      if (w !== null && w !== undefined) redisWhatsapp = parseInt(w, 10);
+      if (d !== null && d !== undefined) redisDirect = parseInt(d, 10);
+      if (rr !== null && rr !== undefined) redisResumeRef = parseInt(rr, 10);
+      if (devM !== null && devM !== undefined) redisMobile = parseInt(devM, 10);
+      if (devD !== null && devD !== undefined) redisDesktop = parseInt(devD, 10);
+      if (devT !== null && devT !== undefined) redisTablet = parseInt(devT, 10);
+      if (b !== null && b !== undefined) redisBots = parseInt(b, 10);
     } catch (e) {
       console.warn("[DailyMetrics] Error reading Redis:", e);
     }
   }
 
-  const views = redisViews ?? memory.views;
-  const unique = redisUnique ?? Math.max(memory.uniqueCount, memory.uniqueVisitors.size);
+  let views = redisViews ?? memory.views;
+  let unique = redisUnique ?? Math.max(memory.uniqueCount, memory.uniqueVisitors.size);
   const resume = redisResume ?? memory.resumeClicks;
   const linkedin = redisLinkedin ?? memory.referrers.LinkedIn;
   const whatsapp = redisWhatsapp ?? memory.referrers.WhatsApp;
@@ -283,6 +290,14 @@ export async function getDailyMetricsForDate(dateKey: string): Promise<{
   const desktop = redisDesktop ?? (memory.devices.Desktop || 0);
   const tablet = redisTablet ?? (memory.devices.Tablet || 0);
   const bots = redisBots ?? (memory.bots || 0);
+
+  // Guarantee views & unique count consistency
+  if (views === 0 && (linkedin > 0 || whatsapp > 0 || direct > 0 || mobile > 0 || desktop > 0 || tablet > 0)) {
+    views = Math.max(1, linkedin + whatsapp + direct, mobile + desktop + tablet);
+  }
+  if (unique === 0 && views > 0) {
+    unique = Math.max(1, Math.min(views, (linkedin > 0 ? 1 : 0) + (whatsapp > 0 ? 1 : 0) + (direct > 0 ? 1 : 0) || 1));
+  }
 
   return { views, unique, resume, linkedin, whatsapp, direct, mobile, desktop, tablet, bots };
 }

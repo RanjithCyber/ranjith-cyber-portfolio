@@ -14,17 +14,17 @@ const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "931155647";
 const REDIS_URL =
   process.env.UPSTASH_REDIS_REST_URL ||
   process.env.KV_REST_API_URL ||
-  "https://master-ant-31189.upstash.io";
+  "";
 const REDIS_TOKEN =
   process.env.UPSTASH_REDIS_REST_TOKEN ||
   process.env.KV_REST_API_TOKEN ||
-  "AYc1ACQgNmY5ZDYyNWUtYTcwOC00YTk5LWJmYzItOGY5ZDU0ZWY3YjU3";
+  "";
 
 const PORTFOLIO_URL =
   process.env.PORTFOLIO_URL || "https://ranjith-cyber-portfolio.vercel.app";
 
 async function executeRedisCommand(command) {
-  if (!REDIS_URL || !REDIS_TOKEN) return null;
+  if (!REDIS_URL || !REDIS_TOKEN || REDIS_URL.includes("master-ant-31189.upstash.io")) return null;
   try {
     const res = await fetch(REDIS_URL, {
       method: "POST",
@@ -61,8 +61,6 @@ async function fetchStatsFromPortfolioApi(dateKey) {
   return null;
 }
 
-
-
 function getReportTargetDateInfo(overrideArg) {
   const executionTimeIST = new Date().toLocaleString("en-IN", {
     timeZone: "Asia/Kolkata",
@@ -72,18 +70,30 @@ function getReportTargetDateInfo(overrideArg) {
 
   if (overrideArg && overrideArg.trim()) {
     const arg = overrideArg.trim();
+    let dt = null;
     if (arg.match(/^\d{4}-\d{2}-\d{2}$/)) {
       const [y, m, d] = arg.split("-").map(Number);
-      const dt = new Date(Date.UTC(y, m - 1, d));
-      const formatted = new Intl.DateTimeFormat("en-IN", {
+      dt = new Date(Date.UTC(y, m - 1, d));
+    } else {
+      const parsed = Date.parse(arg);
+      if (!isNaN(parsed)) {
+        dt = new Date(parsed);
+      }
+    }
+
+    if (dt) {
+      const year = dt.getUTCFullYear();
+      const month = String(dt.getUTCMonth() + 1).padStart(2, "0");
+      const day = String(dt.getUTCDate()).padStart(2, "0");
+      const dateKey = `${year}-${month}-${day}`;
+      const dateFormatted = new Intl.DateTimeFormat("en-IN", {
         timeZone: "Asia/Kolkata",
         day: "2-digit",
         month: "long",
         year: "numeric",
       }).format(dt);
-      return { dateKey: arg, dateFormatted: formatted, executionTimeIST };
+      return { dateKey, dateFormatted, executionTimeIST };
     }
-    return { dateKey: arg, dateFormatted: arg, executionTimeIST };
   }
 
   const nowIST = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));

@@ -42,6 +42,22 @@ export function AccessGateModal() {
       }
     }
 
+    // Record telemetry event to server metrics store
+    try {
+      fetch("/api/telemetry/record", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "view",
+          isUnique: true,
+          visitorId: trimmed,
+          referrerCategory: "Direct",
+          device: typeof navigator !== "undefined" && /mobile|android|iphone/i.test(navigator.userAgent) ? "Mobile" : "Desktop",
+          timestamp: new Date().toISOString(),
+        }),
+      }).catch(() => {});
+    } catch {}
+
     // Asynchronously dispatch Telegram notification to Ranjith's bot
     sendTelegramAlert(trimmed).catch((err) => {
       console.warn("[AccessGate] Alert dispatch failed:", err);

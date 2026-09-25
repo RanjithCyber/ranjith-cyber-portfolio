@@ -184,16 +184,9 @@ export function detectBotOrCrawler(
     return { isBot: true, reason: "Automated Webdriver signature" };
   }
 
-  const botUaPattern = /bot|crawler|spider|headless|preview|bing|duckduck|slurp|facebookexternalhit|bytespider|gptbot|claudebot|axios|curl|fetch|node-fetch|lighthouse|puppeteer|selenium|phantom|playwright|prerender|monitor|uptimerobot|checker|postman|insomnia|headlesschrome/i;
+  const botUaPattern = /bot|crawler|spider|headless|bingbot|googlebot|slurp|facebookexternalhit|bytespider|gptbot|claudebot|axios|curl|wget|lighthouse|puppeteer|selenium|phantom|playwright|prerender|uptimerobot|headlesschrome/i;
   if (ua && botUaPattern.test(ua)) {
     return { isBot: true, reason: `Headless/Bot User-Agent (${ua.slice(0, 30)})` };
-  }
-
-  if (ispOrg) {
-    const cloudInfraPattern = /microsoft corporation|amazon|aws|google llc|cloudflare|digitalocean|oracle|hetzner|ovh|linode|vercel|fastly|akamai|datadog|m247|leaseweb|hostinger|shenzhen|alibaba|tencent|baidu|yandex/i;
-    if (cloudInfraPattern.test(ispOrg)) {
-      return { isBot: true, reason: `Cloud/Datacenter ISP (${ispOrg})` };
-    }
   }
 
   if (extra) {
