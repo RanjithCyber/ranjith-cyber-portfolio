@@ -412,7 +412,31 @@ export async function handleCronDailyReport(request: Request): Promise<Response>
 export async function handleGetDailyStats(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const dateParam = url.searchParams.get("date") || undefined;
+  const isReset = url.searchParams.get("reset") === "true";
   const { dateKey, dateFormatted } = getReportTargetDateInfo(dateParam);
+
+  if (isReset) {
+    memoryStore.delete(dateKey);
+    if (REDIS_URL && REDIS_TOKEN && !REDIS_URL.includes("master-ant-31189.upstash.io")) {
+      try {
+        await Promise.all([
+          executeRedisCommand(["DEL", `views:${dateKey}`]),
+          executeRedisCommand(["DEL", `unique:${dateKey}`]),
+          executeRedisCommand(["DEL", `resume:${dateKey}`]),
+          executeRedisCommand(["DEL", `referrers:${dateKey}:LinkedIn`]),
+          executeRedisCommand(["DEL", `referrers:${dateKey}:WhatsApp`]),
+          executeRedisCommand(["DEL", `referrers:${dateKey}:Direct`]),
+          executeRedisCommand(["DEL", `referrers:${dateKey}:Resume`]),
+          executeRedisCommand(["DEL", `devices:${dateKey}:Mobile`]),
+          executeRedisCommand(["DEL", `devices:${dateKey}:Desktop`]),
+          executeRedisCommand(["DEL", `devices:${dateKey}:Tablet`]),
+          executeRedisCommand(["DEL", `bots:${dateKey}`]),
+          executeRedisCommand(["DEL", `report_sent:${dateKey}`]),
+        ]);
+      } catch {}
+    }
+  }
+
   const metrics = await getDailyMetricsForDate(dateKey);
 
   const refList: { name: string; count: number }[] = [
