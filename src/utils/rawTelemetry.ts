@@ -20,23 +20,44 @@ function getSourceApp(): string {
   const refLower = rawReferrer.toLowerCase();
   const hrefLower = href.toLowerCase();
   const searchParams = new URLSearchParams(window.location.search);
+  const utmSource = (searchParams.get("utm_source") || searchParams.get("ref") || searchParams.get("source") || "").toLowerCase();
 
   if (
     /linkedin/i.test(ua) ||
     refLower.includes("linkedin") ||
     refLower.includes("lnkd.in") ||
     refLower.includes("licdn") ||
+    utmSource.includes("linkedin") ||
     searchParams.has("lipi") ||
     searchParams.has("li_fat_id") ||
     hrefLower.includes("lipi=")
   ) {
     return "💼 LinkedIn Link / In-App";
   }
-  if (/whatsapp/i.test(ua) || refLower.includes("whatsapp") || refLower.includes("wa.me")) {
+
+  if (/whatsapp/i.test(ua) || refLower.includes("whatsapp") || refLower.includes("wa.me") || utmSource.includes("whatsapp")) {
     return "💬 WhatsApp Link / In-App";
   }
-  if (/instagram/i.test(ua)) return "📷 Instagram In-App Browser";
-  if (/telegram/i.test(ua)) return "✈️ Telegram In-App Browser";
+
+  if (refLower.includes("t.co") || refLower.includes("twitter.com") || refLower.includes("x.com") || /twitter/i.test(ua) || utmSource.includes("twitter") || utmSource.includes("x.com")) {
+    return "🐦 Twitter / X Link";
+  }
+
+  if (refLower.includes("instagram") || refLower.includes("ig.me") || /instagram/i.test(ua) || utmSource.includes("instagram")) {
+    return "📷 Instagram In-App / Link";
+  }
+
+  if (refLower.includes("facebook") || refLower.includes("fb.me") || refLower.includes("fb.com") || searchParams.has("fbclid") || utmSource.includes("facebook")) {
+    return "📘 Facebook Link";
+  }
+
+  if (refLower.includes("t.me") || refLower.includes("telegram") || /telegram/i.test(ua) || utmSource.includes("telegram")) {
+    return "✈️ Telegram Link / In-App";
+  }
+
+  if (refLower.includes("resume") || refLower.includes("cv") || utmSource.includes("resume") || utmSource.includes("cv")) {
+    return "📄 Resume / CV Link";
+  }
 
   if (rawReferrer.trim().length > 0) {
     return `🌐 Web Referrer: ${rawReferrer}`;

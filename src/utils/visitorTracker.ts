@@ -68,6 +68,7 @@ function getReferrerCategory(): { rawReferrer: string; category: string } {
   const searchParams = new URLSearchParams(window.location.search);
   const utmSource = (searchParams.get("utm_source") || searchParams.get("ref") || searchParams.get("source") || "").toLowerCase();
 
+  // 1. LinkedIn Detection (linkedin.com, lnkd.in, licdn, lipi, tracking IDs)
   if (
     refLower.includes("linkedin") ||
     refLower.includes("lnkd.in") ||
@@ -83,21 +84,68 @@ function getReferrerCategory(): { rawReferrer: string; category: string } {
     return { rawReferrer: rawReferrer || "LinkedIn Link", category: "LinkedIn" };
   }
 
+  // 2. WhatsApp Detection (whatsapp.com, wa.me, api.whatsapp)
   if (
     refLower.includes("whatsapp") ||
     refLower.includes("wa.me") ||
     uaLower.includes("whatsapp") ||
     utmSource.includes("whatsapp")
   ) {
-    return { rawReferrer: rawReferrer || "WhatsApp", category: "WhatsApp" };
+    return { rawReferrer: rawReferrer || "WhatsApp Link", category: "WhatsApp" };
   }
 
+  // 3. Twitter / X Detection (t.co shortener, twitter.com, x.com)
+  if (
+    refLower.includes("t.co") ||
+    refLower.includes("twitter.com") ||
+    refLower.includes("x.com") ||
+    uaLower.includes("twitter") ||
+    utmSource.includes("twitter") ||
+    utmSource.includes("x.com")
+  ) {
+    return { rawReferrer: rawReferrer || "Twitter / X Link", category: "Twitter / X" };
+  }
+
+  // 4. Instagram Detection (instagram.com, ig.me, l.instagram.com)
+  if (
+    refLower.includes("instagram") ||
+    refLower.includes("ig.me") ||
+    uaLower.includes("instagram") ||
+    utmSource.includes("instagram")
+  ) {
+    return { rawReferrer: rawReferrer || "Instagram Link", category: "Instagram" };
+  }
+
+  // 5. Facebook Detection (facebook.com, fb.me, fb.com, fbclid)
+  if (
+    refLower.includes("facebook") ||
+    refLower.includes("fb.me") ||
+    refLower.includes("fb.com") ||
+    searchParams.has("fbclid") ||
+    utmSource.includes("facebook")
+  ) {
+    return { rawReferrer: rawReferrer || "Facebook Link", category: "Facebook" };
+  }
+
+  // 6. Telegram Detection (t.me, telegram.me, telegram.org)
+  if (
+    refLower.includes("t.me") ||
+    refLower.includes("telegram") ||
+    uaLower.includes("telegram") ||
+    utmSource.includes("telegram")
+  ) {
+    return { rawReferrer: rawReferrer || "Telegram Link", category: "Telegram" };
+  }
+
+  // 7. Resume / CV Link Detection
   if (
     refLower.includes("resume") ||
+    refLower.includes("cv") ||
     utmSource.includes("resume") ||
+    utmSource.includes("cv") ||
     window.location.pathname.toLowerCase().includes("resume")
   ) {
-    return { rawReferrer: rawReferrer || "Resume Link", category: "Resume" };
+    return { rawReferrer: rawReferrer || "Resume / CV Link", category: "Resume" };
   }
 
   if (rawReferrer.length > 0) {
@@ -116,8 +164,8 @@ function getDeviceInfo(): string {
   if (typeof navigator === "undefined") return "Desktop";
   const ua = navigator.userAgent || "";
 
-  if (/mobile|android|iphone|ipod/i.test(ua)) return "Mobile";
-  if (/ipad|tablet/i.test(ua)) return "Tablet";
+  if (/ipad|tablet|playbook|silk/i.test(ua)) return "Tablet";
+  if (/mobile|android|iphone|ipod|blackberry|opera mini|iemobile/i.test(ua)) return "Mobile";
   return "Desktop";
 }
 
