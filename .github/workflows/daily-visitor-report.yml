@@ -1,8 +1,5 @@
 name: Daily Visitor Report
 on:
-  schedule:
-    # 18:29 UTC corresponds to 23:59 IST
-    - cron: '29 18 * * *'
   workflow_dispatch: # Allows manual testing from GitHub Actions tab
 
 jobs:
