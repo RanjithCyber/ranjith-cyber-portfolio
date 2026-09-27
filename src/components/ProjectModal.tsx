@@ -175,8 +175,10 @@ export function ProjectModal({ project, onClose }: ProjectModalProps) {
                     <Github size={15} /> GitHub Repository
                     <ExternalLink size={12} className="text-ink-muted" />
                   </a>
-                ) : (
-                  <span className="font-mono text-xs text-ink-muted flex items-center gap-1.5">
+                ) : null}
+
+                {project.code === "P-01" && (
+                  <span className="font-mono text-xs text-ink-muted flex items-center gap-1.5 rounded border border-line/70 bg-obsidian/70 px-2.5 py-1.5">
                     <ShieldCheck size={14} className="text-mint" /> Peer-Reviewed Research · ICSEAIS 2026
                   </span>
                 )}

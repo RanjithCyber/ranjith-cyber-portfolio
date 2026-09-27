@@ -226,6 +226,7 @@ const projectsData: ProjectData[] = [
       "Presented peer-reviewed research at ICSEAIS 2026 international conference",
     ],
     impact: "Trapped 140+ active threat vectors in sandbox testing with 92% classification accuracy.",
+    githubUrl: "https://github.com/RanjithCyber/cybershield-ai-securelogin",
   },
   {
     code: "P-02",
