@@ -150,17 +150,21 @@ export function ProjectModal({ project, onClose }: ProjectModalProps) {
             </div>
 
             <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
-              <a
-                href={project.githubUrl || "https://github.com/RanjithCyber"}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-lg border border-line bg-obsidian px-4 py-2 font-mono text-xs font-medium text-ink transition-transform hover:-translate-y-0.5"
-              >
-                <Github size={15} /> GitHub Repository
-              </a>
+              {project.githubUrl ? (
+                <a
+                  href={project.githubUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-lg border border-line bg-obsidian px-4 py-2 font-mono text-xs font-medium text-ink transition-transform hover:-translate-y-0.5"
+                >
+                  <Github size={15} /> GitHub Repository
+                </a>
+              ) : (
+                <div />
+              )}
               <button
                 onClick={onClose}
-                className="rounded-lg bg-ember px-4 py-2 font-mono text-xs font-medium text-obsidian transition-transform hover:-translate-y-0.5"
+                className="rounded-lg bg-ember px-4 py-2 font-mono text-xs font-medium text-obsidian transition-transform hover:-translate-y-0.5 cursor-pointer"
               >
                 Close Overview
               </button>
@@ -546,15 +550,9 @@ root
 
             {/* Modal Footer */}
             <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
-              <div className="flex gap-2">
-                <a
-                  href={project.githubUrl || "https://github.com/RanjithCyber"}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 rounded-lg border border-line bg-obsidian px-4 py-2 font-mono text-xs font-medium text-ink transition-transform hover:-translate-y-0.5"
-                >
-                  <Github size={15} /> GitHub Profile
-                </a>
+              <div className="flex items-center gap-2 font-mono text-xs text-ink-muted">
+                <ShieldCheck size={15} className="text-mint" />
+                <span>Authorized CTF Target (10.10.1.10) · Competition Lab</span>
               </div>
               <button
                 onClick={onClose}

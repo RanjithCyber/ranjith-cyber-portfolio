@@ -81,7 +81,6 @@ const projectsData: ProjectData[] = [
     ],
     impact:
       "Achieved 100% completion across all 7 challenge milestones, progressing from an internet-facing web application to full server-side root takeover, earning 1 Continuing Professional Education (CPE) Credit.",
-    githubUrl: "https://github.com/RanjithCyber",
     ctfReport: {
       competition: "EC-Council Hackerverse CTF Competition",
       date: "27 September 2026",
