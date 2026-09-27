@@ -226,7 +226,6 @@ const projectsData: ProjectData[] = [
       "Presented peer-reviewed research at ICSEAIS 2026 international conference",
     ],
     impact: "Trapped 140+ active threat vectors in sandbox testing with 92% classification accuracy.",
-    githubUrl: "https://github.com/RanjithCyber",
   },
   {
     code: "P-02",
@@ -244,7 +243,7 @@ const projectsData: ProjectData[] = [
       "Flask REST API backend with secure CORS and token authorization",
     ],
     impact: "Achieved 94.8% detection sensitivity for Denial of Service (DoS) and port scan probes.",
-    githubUrl: "https://github.com/RanjithCyber",
+    githubUrl: "https://github.com/RanjithCyber/ids-dashboard-ui",
   },
   {
     code: "P-03",
@@ -262,7 +261,11 @@ const projectsData: ProjectData[] = [
       "Interactive PhishGuard AI Chatbot assisting users with real-time threat queries",
     ],
     impact: "Identifies newly registered phishing domains within 300ms of analysis.",
-    githubUrl: "https://github.com/RanjithCyber",
+    githubUrl: "https://github.com/RanjithCyber/phishing-detector",
+    githubUrls: [
+      { label: "Phishing Detector Repo", url: "https://github.com/RanjithCyber/phishing-detector" },
+      { label: "ShieldBot Assist Repo", url: "https://github.com/RanjithCyber/shieldbot-assist" },
+    ],
   },
   {
     code: "P-04",
@@ -280,7 +283,7 @@ const projectsData: ProjectData[] = [
       "Role-Based Access Control (RBAC) enforced with cryptographically signed tokens",
     ],
     impact: "Scans web attack surfaces in under 5 seconds with automated remediation reports.",
-    githubUrl: "https://github.com/RanjithCyber",
+    githubUrl: "https://github.com/RanjithCyber/CyberShield-AI-Vulnerability-Scanner",
   },
   {
     code: "P-05",
@@ -298,7 +301,7 @@ const projectsData: ProjectData[] = [
       "Client-side zero-knowledge vault logic with crypto.getRandomValues()",
     ],
     impact: "Prevents brute-force vulnerabilities by enforcing entropy-based strength thresholds.",
-    githubUrl: "https://github.com/RanjithCyber",
+    githubUrl: "https://github.com/RanjithCyber/cybershield-password-analyzer",
   },
 ];
 
@@ -827,7 +830,37 @@ function Index() {
                   <span className="inline-flex items-center gap-1 group-hover:text-ink">
                     <Eye size={13} className="text-ice" /> Inspect architecture
                   </span>
-                  <ArrowUpRight size={14} className="text-ember transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+
+                  <div className="flex items-center gap-2.5">
+                    {project.githubUrls && project.githubUrls.length > 0 ? (
+                      <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                        {project.githubUrls.map((gh, idx) => (
+                          <a
+                            key={idx}
+                            href={gh.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            title={`Open ${gh.label} on GitHub`}
+                            className="inline-flex items-center gap-1 rounded border border-line bg-obsidian px-2 py-0.5 text-[10px] text-ink-muted transition-colors hover:border-ember hover:text-ember"
+                          >
+                            <Github size={11} /> {idx === 0 ? "Detector" : "Bot"}
+                          </a>
+                        ))}
+                      </div>
+                    ) : project.githubUrl ? (
+                      <a
+                        href={project.githubUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        title="Open GitHub Repository"
+                        className="inline-flex items-center gap-1 rounded border border-line bg-obsidian px-2 py-0.5 text-[10px] text-ink-muted transition-colors hover:border-ember hover:text-ember"
+                      >
+                        <Github size={11} /> Repo
+                      </a>
+                    ) : null}
+                    <ArrowUpRight size={14} className="text-ember transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                  </div>
                 </div>
               </article>
             ))}

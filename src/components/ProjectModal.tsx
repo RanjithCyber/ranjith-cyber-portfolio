@@ -56,6 +56,7 @@ export interface ProjectData {
   keyFeatures?: string[];
   impact?: string;
   githubUrl?: string;
+  githubUrls?: { label: string; url: string }[];
   demoUrl?: string;
   ctfReport?: CTFReportData;
 }
@@ -150,18 +151,36 @@ export function ProjectModal({ project, onClose }: ProjectModalProps) {
             </div>
 
             <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
-              {project.githubUrl ? (
-                <a
-                  href={project.githubUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 rounded-lg border border-line bg-obsidian px-4 py-2 font-mono text-xs font-medium text-ink transition-transform hover:-translate-y-0.5"
-                >
-                  <Github size={15} /> GitHub Repository
-                </a>
-              ) : (
-                <div />
-              )}
+              <div className="flex flex-wrap items-center gap-2">
+                {project.githubUrls && project.githubUrls.length > 0 ? (
+                  project.githubUrls.map((repo, idx) => (
+                    <a
+                      key={idx}
+                      href={repo.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 rounded-lg border border-line bg-obsidian px-3.5 py-2 font-mono text-xs font-medium text-ink transition-all hover:-translate-y-0.5 hover:border-ember hover:text-ember"
+                    >
+                      <Github size={15} /> {repo.label}
+                      <ExternalLink size={12} className="text-ink-muted" />
+                    </a>
+                  ))
+                ) : project.githubUrl ? (
+                  <a
+                    href={project.githubUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-lg border border-line bg-obsidian px-4 py-2 font-mono text-xs font-medium text-ink transition-all hover:-translate-y-0.5 hover:border-ember hover:text-ember"
+                  >
+                    <Github size={15} /> GitHub Repository
+                    <ExternalLink size={12} className="text-ink-muted" />
+                  </a>
+                ) : (
+                  <span className="font-mono text-xs text-ink-muted flex items-center gap-1.5">
+                    <ShieldCheck size={14} className="text-mint" /> Peer-Reviewed Research · ICSEAIS 2026
+                  </span>
+                )}
+              </div>
               <button
                 onClick={onClose}
                 className="rounded-lg bg-ember px-4 py-2 font-mono text-xs font-medium text-obsidian transition-transform hover:-translate-y-0.5 cursor-pointer"
