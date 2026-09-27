@@ -19,12 +19,16 @@ import {
   Activity,
   GraduationCap,
   Twitter,
+  ShieldAlert,
+  Award,
+  Flame,
 } from "lucide-react";
 import { createFileRoute } from "@tanstack/react-router";
 
 import ranjithPhoto from "@/assets/ranjith.jpg";
 import threatMap from "@/assets/threat-map.jpg";
 
+import { React2ShellDemo } from "@/components/React2ShellDemo";
 import { HoneypotSimulator } from "@/components/HoneypotSimulator";
 import { PhishingDetectorDemo } from "@/components/PhishingDetectorDemo";
 import { IdsSimulatorDemo } from "@/components/IdsSimulatorDemo";
@@ -37,14 +41,175 @@ import { ResumeModal } from "@/components/ResumeModal";
 import { AccessGateModal } from "@/components/AccessGateModal";
 
 const navItems = [
-  { href: "#work", label: "Projects" },
+  { href: "#work", label: "Projects & CTF" },
   { href: "#demos", label: "Live Demos" },
   { href: "#timeline", label: "Experience" },
   { href: "#credentials", label: "Certifications" },
-  { href: "#research", label: "Research" },
+  { href: "#research", label: "Research & CTFs" },
 ];
 
 const projectsData: ProjectData[] = [
+  {
+    code: "CTF-01",
+    status: "Root Escalated",
+    statusTone: "ember",
+    title: "React2Shell CTF — End-to-End Web Application Security Assessment",
+    description:
+      "Identified and exploited a vulnerable Next.js 16.0.6 deployment through React2Shell, demonstrated server-side RCE, enumerated sudo privileges, and achieved root-level access in an authorized CTF environment.",
+    tags: [
+      "Next.js 16.0.6",
+      "CVE-2025-66478",
+      "CVE-2025-55182",
+      "Prototype Pollution",
+      "RCE",
+      "Sudo npm Root",
+      "Burp Suite",
+      "EC-Council CTF",
+      "1 CPE Credit",
+    ],
+    fullDescription:
+      "Participated in the EC-Council Hackerverse React2Shell CTF Competition, performing an end-to-end security assessment of a deliberately vulnerable Next.js web application. The assessment covered technology fingerprinting, CVE research, HTTP traffic analysis, Remote Code Execution (RCE), Linux privilege enumeration, and privilege escalation from unauthenticated perimeter to full root authority (#).",
+    keyFeatures: [
+      "Technology fingerprinting via Wappalyzer identifying vulnerable Next.js 16.0.6 framework",
+      "CVE research mapping upstream React CVE-2025-55182 and downstream Next.js CVE-2025-66478",
+      "Burp Suite HTTP request analysis targeting React Flight deserialization protocol",
+      "Weaponization of insecure prototype references (_prefix / __proto__) for unauthenticated RCE",
+      "Initial access confirmed under nodejs_user (UID 1001) via netcat reverse shell",
+      "Local privilege enumeration discovering misconfigured /usr/bin/npm NOPASSWD in sudoers",
+      "Binary privilege escalation through npm lifecycle script spawning root shell (UID 0)",
+      "Official CTF proof flag retrieved and 1 CPE Credit awarded by EC-Council",
+    ],
+    impact:
+      "Achieved 100% completion across all 7 challenge milestones, progressing from an internet-facing web application to full server-side root takeover, earning 1 Continuing Professional Education (CPE) Credit.",
+    githubUrl: "https://github.com/RanjithCyber",
+    ctfReport: {
+      competition: "EC-Council Hackerverse CTF Competition",
+      date: "27 September 2026",
+      cpeCredits: "1 CPE Credit",
+      target: "10.10.1.10",
+      environment: "Kali Linux",
+      headline: "React2Shell CTF — End-to-End Web Application Security Assessment",
+      executiveSummary:
+        "Participated in the EC-Council Hackerverse React2Shell CTF Competition, performing an end-to-end security assessment of a deliberately vulnerable Next.js web application. The assessment covered technology fingerprinting, CVE research, HTTP traffic analysis, Remote Code Execution (RCE), Linux privilege enumeration, and privilege escalation. The target was identified as running Next.js 16.0.6, a version within the vulnerable Next.js 16.0.x range affected by the React Server Components vulnerability. Next.js versions before 16.0.7 were affected, with 16.0.7 providing the relevant fix. The exercise ultimately demonstrated an attack path from a publicly exposed web application to command execution under the nodejs_user account and then to elevated privileges through an incorrectly restricted sudo configuration.",
+      objectives: [
+        "Identify the application's technology stack.",
+        "Determine vulnerable software versions.",
+        "Research relevant CVEs (CVE-2025-55182 & CVE-2025-66478).",
+        "Analyze HTTP requests and application behavior using Burp Suite.",
+        "Demonstrate the impact of the identified vulnerability.",
+        "Obtain an initial foothold on the target.",
+        "Enumerate local privilege-escalation opportunities.",
+        "Identify an exploitable sudo configuration.",
+        "Demonstrate escalation to root.",
+        "Retrieve the CTF flag as proof of compromise.",
+      ],
+      toolsUsed: [
+        { tool: "Wappalyzer", purpose: "Technology and version fingerprinting" },
+        { tool: "Burp Suite", purpose: "HTTP traffic interception and analysis" },
+        { tool: "Kali Linux", purpose: "Security testing environment" },
+        { tool: "Python", purpose: "Interaction with the proof-of-concept tooling" },
+        { tool: "Netcat", purpose: "Reverse-shell/listener testing" },
+        { tool: "Linux utilities", purpose: "Enumeration and privilege assessment" },
+      ],
+      methodology: [
+        {
+          number: 1,
+          title: "1. Reconnaissance & Technology Fingerprinting",
+          description:
+            "The target web application was initially examined using Wappalyzer. The technology stack revealed: JavaScript Framework: Next.js 16.0.6. The framework was also identified in multiple Wappalyzer categories, providing additional confidence in the fingerprint.",
+          codeSnippet: "curl -I -s http://10.10.1.10:3000 | grep -iE '(x-powered-by|next)'\n# HTTP/1.1 200 OK\n# X-Powered-By: Next.js 16.0.6",
+        },
+        {
+          number: 2,
+          title: "2. Vulnerability Research",
+          description:
+            "Research into the identified version led to React2Shell, a critical vulnerability affecting React Server Components and downstream frameworks such as Next.js. Upstream React vulnerability: CVE-2025-55182. Downstream Next.js vulnerability: CVE-2025-66478. Next.js documented that affected 16.0.x versions were fixed beginning with 16.0.7. The underlying issue involves unsafe handling of references during React Flight/RSC deserialization, including prototype-chain traversal.",
+          link: { label: "Next.js Security Advisory (v16.0.7 Fix)", url: "https://github.com/vercel/next.js/discussions/86813" },
+        },
+        {
+          number: 3,
+          title: "3. HTTP Traffic Analysis",
+          description:
+            "Burp Suite was used to intercept and examine requests exchanged between the browser and the target application. The assessment focused on understanding how the application processed React Server Component requests and identifying request structures relevant to the vulnerable deserialization mechanism. The vulnerability can be triggered through specially crafted HTTP requests to vulnerable RSC-enabled applications.",
+          codeSnippet: "POST /_next/flight HTTP/1.1\nHost: 10.10.1.10:3000\nRSC: 1\nContent-Type: text/plain;charset=UTF-8\n\n0:{\"_prefix\":\"__proto__\",\"target\":{...}}",
+        },
+        {
+          number: 4,
+          title: "4. Prototype Reference Vulnerability",
+          description:
+            "The challenge highlighted the use of user-controlled properties capable of interacting with JavaScript's prototype chain. The relevant vulnerability classification used in the CTF was: Insecure Prototype References. This relates to prototype-chain manipulation involving properties such as __proto__ and constructor.prototype. Research into React2Shell similarly describes prototype-chain traversal as a central part of the exploitation mechanism.",
+        },
+        {
+          number: 5,
+          title: "5. Remote Code Execution",
+          description:
+            "The vulnerability was successfully demonstrated against the CTF target. A command-execution test returned:\nuid=1001(nodejs_user) gid=1001(nodejs_user) groups=1001(nodejs_user)\nThis established that attacker-controlled commands were being executed by the Node.js application process under the nodejs_user account. This is consistent with the documented impact of React2Shell: successful exploitation can result in arbitrary command execution with the privileges of the server-side Node.js process.",
+          codeSnippet: "$ id\nuid=1001(nodejs_user) gid=1001(nodejs_user) groups=1001(nodejs_user)",
+        },
+        {
+          number: 6,
+          title: "6. Local Privilege Enumeration & Root Escalation",
+          description:
+            "After establishing the initial foothold, the target's sudo configuration was examined. The relevant configuration allowed: nodejs_user -> /usr/bin/npm with NOPASSWD. This represented the privilege-escalation path used in the CTF. The assessment therefore progressed from: Internet-facing Web Application -> Next.js 16.0.6 -> React2Shell -> Remote Code Execution -> nodejs_user -> sudo enumeration -> npm -> Root privileges.",
+          codeSnippet: "$ sudo -l\nUser nodejs_user may run the following commands on ctf-target:\n    (ALL : ALL) NOPASSWD: /usr/bin/npm\n\n# Execution of root lifecycle script:\n# id\nuid=0(root) gid=0(root) groups=0(root)\n# cat /root/proof.txt\n[+] CTF flag successfully retrieved",
+        },
+      ],
+      findings: [
+        { challenge: 1, finding: "Next.js 16.0.6" },
+        { challenge: 2, finding: "CVE-2025-66478" },
+        { challenge: 3, finding: "CVE-2025-55182" },
+        { challenge: 4, finding: "Insecure Prototype References" },
+        { challenge: 5, finding: "_prefix" },
+        { challenge: 6, finding: "npm" },
+        { challenge: 7, finding: "CTF flag successfully retrieved" },
+      ],
+      securityImpact: [
+        "Application source code exposure",
+        "Environment variables leakage",
+        "Credentials and API keys theft",
+        "Internal system files and configurations",
+        "Application data and databases",
+        "Server-side lateral network services",
+        "System-level root compromise",
+      ],
+      keyLearningOutcomes: [
+        "Web application reconnaissance & technology fingerprinting",
+        "CVE research & vulnerability mapping (CVE-2025-66478 & CVE-2025-55182)",
+        "React Server Components architecture & React Flight deserialization protocol",
+        "Next.js framework security and patch verification",
+        "Prototype-chain vulnerabilities and insecure prototype references",
+        "HTTP request analysis and crafting using Burp Suite",
+        "Remote Code Execution (RCE) payload staging and netcat listener handling",
+        "Linux privilege enumeration and sudo configuration inspection",
+        "Sudo misconfiguration exploitation and binary privilege escalation via npm",
+        "Multi-stage attack-chain development from perimeter web to root",
+      ],
+      remediationRecommendations: [
+        "Upgrade Next.js to a patched version (for affected 16.0.x line, 16.0.7 or later).",
+        "Update affected React Server Components packages to patched releases.",
+        "Review sudoers configurations and remove unnecessary NOPASSWD privileges.",
+        "Apply the principle of least privilege to application service accounts.",
+        "Keep application dependencies continuously monitored for newly disclosed vulnerabilities.",
+        "Implement appropriate logging and monitoring for suspicious RSC requests and unexpected child-process execution.",
+        "Rotate potentially exposed credentials after a confirmed compromise.",
+      ],
+      conclusion:
+        "The React2Shell CTF provided practical experience in conducting a complete web application security assessment, beginning with reconnaissance and technology identification and progressing through vulnerability research, exploitation, initial access, privilege enumeration, and privilege escalation. Most importantly, the challenge demonstrated that individual vulnerabilities should not be assessed in isolation. A vulnerable web framework combined with excessive local privileges can transform an application-level vulnerability into a complete server compromise.",
+      skillsDemonstrated: [
+        "Web Security",
+        "Vulnerability Assessment",
+        "Burp Suite",
+        "CVE Research",
+        "RCE",
+        "Linux",
+        "Privilege Escalation",
+        "CTF",
+        "Next.js 16.0.6",
+      ],
+      certificateText:
+        "EC-Council Hackerverse CTF Competition — React2Shell, issued 27 September 2026, 1 CPE credit.",
+    },
+  },
   {
     code: "P-01",
     status: "Presented",
@@ -205,6 +370,25 @@ const certificationsData: CertificationData[] = [
     skillsValidated: ["Enterprise Controls", "Threat Mitigation", "Cryptography", "Security Auditing"],
     issuedDate: "Active Record",
   },
+  {
+    code: "C-05",
+    issuer: "EC-Council Hackerverse",
+    title: "React2Shell CTF Assessment",
+    detail: "End-to-end security assessment: Next.js 16.0.6 RSC Flight deserialization RCE (CVE-2025-66478), prototype references, and Linux sudo npm privilege escalation to root. Awarded 1 CPE Credit.",
+    skillsValidated: [
+      "Next.js 16.0.6 RCE",
+      "CVE-2025-66478",
+      "CVE-2025-55182",
+      "Prototype References",
+      "Burp Suite",
+      "Sudo npm PrivEsc",
+      "1 CPE Credit",
+    ],
+    verificationId: "EC-COUNCIL-HACKVERSE-R2S-2026",
+    issuedDate: "27 September 2026",
+    cpeCredits: "1 CPE Credit",
+    projectLinkCode: "CTF-01",
+  },
 ];
 
 export const Route = createFileRoute("/")({
@@ -232,7 +416,7 @@ export const Route = createFileRoute("/")({
 function Index() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [heroView, setHeroView] = useState<"portrait" | "map">("portrait");
-  const [activeDemoTab, setActiveDemoTab] = useState<"honeypot" | "phishing" | "ids" | "vault" | "scanner">("honeypot");
+  const [activeDemoTab, setActiveDemoTab] = useState<"react2shell" | "honeypot" | "phishing" | "ids" | "vault" | "scanner">("react2shell");
 
   // Modals state
   const [selectedProject, setSelectedProject] = useState<ProjectData | null>(null);
@@ -494,6 +678,7 @@ function Index() {
                     <span className="rounded bg-panel border border-line px-1.5 py-0.5 text-ice">CEH v13 AI</span>
                     <span className="rounded bg-panel border border-line px-1.5 py-0.5 text-ice">CompTIA CySA+</span>
                     <span className="rounded bg-panel border border-line px-1.5 py-0.5 text-ice">ISC2 CC</span>
+                    <span className="rounded bg-panel border border-line px-1.5 py-0.5 text-ember">React2Shell CTF</span>
                     <span className="rounded bg-panel border border-line px-1.5 py-0.5 text-ember">ICSEAIS 2026</span>
                   </div>
                 </div>
@@ -506,7 +691,7 @@ function Index() {
         <section className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-line bg-line md:grid-cols-4" aria-label="Proof metrics">
           <Metric value="92%" label="MLSD Honeypot Trapping Accuracy" highlight="ICSEAIS 2026 Paper" />
           <Metric value="8.03" label="B.Tech Cyber Security CGPA" highlight="Crescent Institute" />
-          <Metric value="384" label="Hands-on CTF Milestones Solved" highlight="Linux Luminarium &amp; Dojo" />
+          <Metric value="385+" label="Hands-on CTF Milestones Solved" highlight="EC-Council React2Shell &amp; Dojos" />
           <Metric value="4" label="Enterprise Internships Completed" highlight="Thiranex, VCodez, DCW" />
         </section>
 
@@ -517,59 +702,70 @@ function Index() {
           {/* Tab Selector */}
           <div className="mt-6 flex flex-wrap gap-2 border-b border-line pb-4">
             <button
+              onClick={() => setActiveDemoTab("react2shell")}
+              className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 font-mono text-xs transition-colors cursor-pointer ${
+                activeDemoTab === "react2shell"
+                  ? "bg-ember text-obsidian font-bold shadow-md ring-1 ring-ember"
+                  : "border border-ember/40 bg-ember/10 text-ember hover:bg-ember/20"
+              }`}
+            >
+              <ShieldAlert size={14} /> 1. React2Shell CTF (CVE-2025-66478)
+            </button>
+            <button
               onClick={() => setActiveDemoTab("honeypot")}
-              className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 font-mono text-xs transition-colors ${
+              className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 font-mono text-xs transition-colors cursor-pointer ${
                 activeDemoTab === "honeypot"
                   ? "bg-ember text-obsidian font-bold shadow-md"
                   : "border border-line bg-panel text-ink-muted hover:text-ink"
               }`}
             >
-              <Zap size={14} /> 1. MLSD Honeypot Telemetry
+              <Zap size={14} /> 2. MLSD Honeypot Telemetry
             </button>
             <button
               onClick={() => setActiveDemoTab("phishing")}
-              className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 font-mono text-xs transition-colors ${
+              className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 font-mono text-xs transition-colors cursor-pointer ${
                 activeDemoTab === "phishing"
                   ? "bg-ember text-obsidian font-bold shadow-md"
                   : "border border-line bg-panel text-ink-muted hover:text-ink"
               }`}
             >
-              <Bot size={14} /> 2. Phishing Detector &amp; AI Chatbot
+              <Bot size={14} /> 3. Phishing Detector &amp; AI Chatbot
             </button>
             <button
               onClick={() => setActiveDemoTab("ids")}
-              className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 font-mono text-xs transition-colors ${
+              className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 font-mono text-xs transition-colors cursor-pointer ${
                 activeDemoTab === "ids"
                   ? "bg-ember text-obsidian font-bold shadow-md"
                   : "border border-line bg-panel text-ink-muted hover:text-ink"
               }`}
             >
-              <Activity size={14} /> 3. AI Intrusion Detection (NSL-KDD)
+              <Activity size={14} /> 4. AI Intrusion Detection (NSL-KDD)
             </button>
             <button
               onClick={() => setActiveDemoTab("vault")}
-              className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 font-mono text-xs transition-colors ${
+              className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 font-mono text-xs transition-colors cursor-pointer ${
                 activeDemoTab === "vault"
                   ? "bg-ember text-obsidian font-bold shadow-md"
                   : "border border-line bg-panel text-ink-muted hover:text-ink"
               }`}
             >
-              <Lock size={14} /> 4. Password Shannon Entropy Vault
+              <Lock size={14} /> 5. Password Shannon Entropy Vault
             </button>
             <button
               onClick={() => setActiveDemoTab("scanner")}
-              className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 font-mono text-xs transition-colors ${
+              className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2 font-mono text-xs transition-colors cursor-pointer ${
                 activeDemoTab === "scanner"
                   ? "bg-ember text-obsidian font-bold shadow-md"
                   : "border border-line bg-panel text-ink-muted hover:text-ink"
               }`}
             >
-              <Search size={14} /> 5. CyberShield Web Audit
+              <Search size={14} /> 6. CyberShield Web Audit
             </button>
           </div>
 
           {/* Active Demo Component View */}
           <div className="mt-6">
+            {activeDemoTab === "react2shell" && <React2ShellDemo />}
             {activeDemoTab === "honeypot" && <HoneypotSimulator />}
             {activeDemoTab === "phishing" && <PhishingDetectorDemo />}
             {activeDemoTab === "ids" && <IdsSimulatorDemo />}
@@ -580,21 +776,36 @@ function Index() {
 
         {/* Flagship Projects Section */}
         <section id="work" className="scroll-mt-24 py-16">
-          <SectionHeading index="02" title="Flagship Engineering Projects" aside="Click cards for deep dive" />
+          <SectionHeading index="02" title="Flagship Projects & Security Assessments" aside="Click cards for deep dive" />
           <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             {projectsData.map((project) => (
               <article
                 key={project.code}
                 onClick={() => setSelectedProject(project)}
-                className="group relative cursor-pointer rounded-xl border border-line bg-panel p-6 transition-all duration-200 hover:-translate-y-1 hover:border-ember/60 hover:shadow-xl flex flex-col justify-between"
+                className={`group relative cursor-pointer rounded-xl border p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-xl flex flex-col justify-between ${
+                  project.code === "CTF-01"
+                    ? "border-ember/70 bg-gradient-to-b from-panel via-panel to-obsidian ring-1 ring-ember/30 hover:border-ember hover:shadow-ember/10"
+                    : "border-line bg-panel hover:border-ember/60"
+                }`}
               >
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs font-bold text-ember">{project.code}</span>
+                    <span className="font-mono text-xs font-bold text-ember flex items-center gap-1.5">
+                      {project.code === "CTF-01" && <ShieldAlert size={14} className="text-ember animate-pulse" />}
+                      {project.code}
+                    </span>
                     <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-mint">
                       <span className="size-1.5 rounded-full bg-mint" /> {project.status}
                     </span>
                   </div>
+
+                  {project.code === "CTF-01" && (
+                    <div className="mt-2.5 inline-flex items-center gap-1.5 rounded bg-ember/15 border border-ember/30 px-2 py-0.5 font-mono text-[10px] font-semibold text-ember">
+                      <span>EC-Council Hackerverse CTF</span>
+                      <span>·</span>
+                      <span className="text-mint font-bold">1 CPE Credit</span>
+                    </div>
+                  )}
 
                   <h3 className="mt-4 text-lg font-bold text-ink group-hover:text-ember transition-colors">
                     {project.title}
@@ -703,10 +914,53 @@ function Index() {
               <div className="flex items-center gap-2 font-mono text-xs text-ice font-semibold">
                 <ShieldCheck size={15} /> R-02 / PRACTICAL SECURITY CHALLENGES
               </div>
-              <h3 className="mt-4 text-xl font-bold text-ink">384 Hands-On Security Milestones Solved</h3>
+              <h3 className="mt-4 text-xl font-bold text-ink">385+ Hands-On Security Milestones Solved</h3>
               <p className="mt-3 text-sm leading-relaxed text-ink-muted">
                 Practical work completed across Linux Luminarium, Computing 101, and Playing With Programs dojos, building deep system-level fluency across binary exploitation, reverse engineering, and defensive scripting.
               </p>
+            </article>
+
+            {/* R-03: EC-Council Hackerverse CTF Assessment */}
+            <article className="rounded-xl border border-ember/50 bg-gradient-to-br from-panel via-obsidian to-panel p-6 md:col-span-2 shadow-xl">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2 font-mono text-xs text-ember font-bold">
+                  <ShieldAlert size={16} /> R-03 / EC-COUNCIL HACKERVERSE CTF ASSESSMENT
+                </div>
+                <div className="flex items-center gap-2 font-mono text-[11px]">
+                  <span className="rounded bg-mint/15 border border-mint/40 px-2 py-0.5 text-mint font-semibold">
+                    1 CPE Credit Awarded
+                  </span>
+                  <span className="text-ink-muted">27 September 2026</span>
+                </div>
+              </div>
+
+              <h3 className="mt-4 text-xl font-bold text-ink sm:text-2xl">
+                React2Shell CTF — End-to-End Web Application Security Assessment
+              </h3>
+
+              <p className="mt-3 text-sm leading-relaxed text-ink-muted">
+                Participated in the EC-Council Hackerverse CTF competition, conducting a full-chain penetration assessment of Next.js 16.0.6. Successfully exploited React Server Components Flight deserialization (<span className="text-ice font-mono">CVE-2025-66478</span> / <span className="text-ice font-mono">CVE-2025-55182</span>) through insecure prototype references (<code className="text-ice">_prefix</code>) to gain unauthenticated RCE under <code className="text-ice">nodejs_user</code>, enumerated misconfigured sudo capabilities, and achieved complete root takeover via <code className="text-amber-400">/usr/bin/npm NOPASSWD</code>. All 7 challenges solved and CTF proof flag captured.
+              </p>
+
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-4 border-t border-line/60 pt-4">
+                <div className="flex flex-wrap gap-1.5 font-mono text-[11px]">
+                  <span className="rounded border border-line bg-obsidian px-2 py-0.5 text-ice">Next.js 16.0.6</span>
+                  <span className="rounded border border-line bg-obsidian px-2 py-0.5 text-ice">CVE-2025-66478</span>
+                  <span className="rounded border border-line bg-obsidian px-2 py-0.5 text-ember">Prototype Reference RCE</span>
+                  <span className="rounded border border-line bg-obsidian px-2 py-0.5 text-amber-400">sudo npm Root PrivEsc</span>
+                  <span className="rounded border border-line bg-obsidian px-2 py-0.5 text-mint font-semibold">100% Flag Solved</span>
+                </div>
+
+                <button
+                  onClick={() => {
+                    const ctfProj = projectsData.find((p) => p.code === "CTF-01");
+                    if (ctfProj) setSelectedProject(ctfProj);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-ember px-4 py-2 font-mono text-xs font-semibold text-obsidian hover:bg-ember/90 transition-transform active:scale-95 cursor-pointer"
+                >
+                  <Eye size={14} /> Open Full CTF Assessment Report &amp; Proof <ArrowUpRight size={14} />
+                </button>
+              </div>
             </article>
           </div>
         </section>
@@ -775,7 +1029,14 @@ function Index() {
 
       {/* Modals */}
       <ProjectModal project={selectedProject} onClose={() => setSelectedProject(null)} />
-      <CertificationModal cert={selectedCert} onClose={() => setSelectedCert(null)} />
+      <CertificationModal
+        cert={selectedCert}
+        onClose={() => setSelectedCert(null)}
+        onSelectProjectByCode={(code) => {
+          const proj = projectsData.find((p) => p.code === code);
+          if (proj) setSelectedProject(proj);
+        }}
+      />
       <ContactModal isOpen={contactOpen} onClose={() => setContactOpen(false)} />
       <ResumeModal isOpen={resumeOpen} onClose={() => setResumeOpen(false)} />
       <AccessGateModal />

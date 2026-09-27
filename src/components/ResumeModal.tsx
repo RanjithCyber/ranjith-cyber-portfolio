@@ -141,6 +141,16 @@ export function ResumeModal({ isOpen, onClose }: ResumeModalProps) {
             <div className="mt-3 space-y-4 text-xs">
               <div>
                 <div className="flex justify-between font-semibold">
+                  <span className="text-ink print:text-black">EC-Council Hackerverse — React2Shell CTF Security Assessment</span>
+                  <span className="font-mono text-ember text-[11px] print:text-gray-700">Sep 2026</span>
+                </div>
+                <p className="mt-1 text-ink-muted print:text-gray-700 leading-relaxed">
+                  Conducted end-to-end web penetration assessment on Next.js 16.0.6. Exploited React Flight deserialization (CVE-2025-66478 / CVE-2025-55182) for initial RCE under nodejs_user, analyzed prototype chain references, and escalated to root privileges via misconfigured sudo npm NOPASSWD. Earned 1 CPE Credit.
+                </p>
+              </div>
+
+              <div>
+                <div className="flex justify-between font-semibold">
                   <span className="text-ink print:text-black">Thiranex — Cyber Security Analyst Intern</span>
                   <span className="font-mono text-ember text-[11px] print:text-gray-700">Apr 2026 – May 2026</span>
                 </div>
@@ -186,7 +196,7 @@ export function ResumeModal({ isOpen, onClose }: ResumeModalProps) {
             <h2 className="font-mono text-xs uppercase tracking-widest text-mint font-bold print:text-black border-b border-line/50 pb-1 flex items-center gap-1.5">
               <Shield size={14} /> Technical Skills & Tooling
             </h2>
-            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
               <div className="rounded border border-line bg-obsidian p-3 print:bg-gray-50 print:border-gray-300">
                 <h3 className="font-mono text-[11px] font-semibold text-ice print:text-black">Defensive & Network Security</h3>
                 <p className="mt-1 text-ink-muted print:text-gray-700 text-[11px]">
@@ -194,7 +204,13 @@ export function ResumeModal({ isOpen, onClose }: ResumeModalProps) {
                 </p>
               </div>
               <div className="rounded border border-line bg-obsidian p-3 print:bg-gray-50 print:border-gray-300">
-                <h3 className="font-mono text-[11px] font-semibold text-ice print:text-black">Languages & AI Frameworks</h3>
+                <h3 className="font-mono text-[11px] font-semibold text-ember print:text-black">Offensive & Penetration Testing</h3>
+                <p className="mt-1 text-ink-muted print:text-gray-700 text-[11px]">
+                  Burp Suite, Wappalyzer, Kali Linux, Netcat, RSC Flight Deserialization (CVE-2025-66478), Prototype Reference Traversal, Linux Privilege Escalation (sudo npm).
+                </p>
+              </div>
+              <div className="rounded border border-line bg-obsidian p-3 print:bg-gray-50 print:border-gray-300">
+                <h3 className="font-mono text-[11px] font-semibold text-mint print:text-black">Languages & AI Frameworks</h3>
                 <p className="mt-1 text-ink-muted print:text-gray-700 text-[11px]">
                   Python (Flask, Scikit-learn, Pandas), TypeScript, JavaScript, SQL, NSL-KDD Machine Learning, HTML5/CSS3.
                 </p>
@@ -207,7 +223,7 @@ export function ResumeModal({ isOpen, onClose }: ResumeModalProps) {
             <h2 className="font-mono text-xs uppercase tracking-widest text-ice font-bold print:text-black border-b border-line/50 pb-1 flex items-center gap-1.5">
               <Award size={14} /> Certifications & Global Research
             </h2>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-mono">
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
               <div className="p-2 rounded border border-line bg-obsidian text-ink print:bg-gray-50">
                 • CEH v13 AI (EC-Council)
               </div>
@@ -218,7 +234,10 @@ export function ResumeModal({ isOpen, onClose }: ResumeModalProps) {
                 • ISC2 CC (Certified in Cybersecurity)
               </div>
               <div className="p-2 rounded border border-line bg-obsidian text-ink print:bg-gray-50">
-                • ICSEAIS 2026 Conference Presenter
+                • EC-Council CTF: React2Shell (1 CPE Credit)
+              </div>
+              <div className="p-2 rounded border border-line bg-obsidian text-ink print:bg-gray-50 sm:col-span-2">
+                • ICSEAIS 2026 Peer-Reviewed Conference Presenter (MLSD Research)
               </div>
             </div>
           </div>
