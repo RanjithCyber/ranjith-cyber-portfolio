@@ -167,6 +167,40 @@ async function fetchStatsFromRedis(dateKey) {
   return null;
 }
 
+async function fetchStatsFromTelegramAccumulator(dateKey) {
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getChat?chat_id=${TELEGRAM_CHAT_ID}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const pinned = data.result?.pinned_message?.text;
+    if (!pinned) return null;
+    const match = pinned.match(/DATA_PAYLOAD:\s*(\{.*\})/s);
+    if (!match) return null;
+    const parsed = JSON.parse(match[1]);
+    if (parsed.dateKey === dateKey) {
+      return {
+        totalVisitors: parsed.uniqueCount || parsed.views || 0,
+        pageViews: parsed.views || 0,
+        referrers: {
+          LinkedIn: parsed.referrers?.LinkedIn || 0,
+          WhatsApp: parsed.referrers?.WhatsApp || 0,
+          Direct: (parsed.referrers?.Direct || 0) + (parsed.referrers?.Resume || 0),
+        },
+        devices: {
+          Mobile: parsed.devices?.Mobile || 0,
+          Desktop: parsed.devices?.Desktop || 0,
+          Tablet: parsed.devices?.Tablet || 0,
+        },
+        resumeClicks: parsed.resumeClicks || 0,
+        bots: parsed.bots || 0,
+      };
+    }
+  } catch (err) {
+    console.warn("[TelegramAccumulator] Fetch error:", err.message);
+  }
+  return null;
+}
+
 async function main() {
   console.log("🚀 Starting Daily Visitor Reporter...");
 
@@ -197,7 +231,7 @@ async function main() {
 
   // Attempt 1: Portfolio API endpoint
   const apiStats = await fetchStatsFromPortfolioApi(dateKey);
-  if (apiStats && apiStats.metrics) {
+  if (apiStats && apiStats.metrics && (apiStats.totalVisitors > 0 || apiStats.metrics.views > 0)) {
     console.log("✓ Successfully loaded live metrics from Portfolio API");
     totalVisitors = apiStats.totalVisitors || apiStats.metrics.unique || apiStats.metrics.views || 0;
     pageViews = apiStats.metrics.views || 0;
@@ -212,13 +246,25 @@ async function main() {
   } else {
     // Attempt 2: Direct Redis query
     const redisStats = await fetchStatsFromRedis(dateKey);
-    if (redisStats) {
+    if (redisStats && (redisStats.totalVisitors > 0 || redisStats.pageViews > 0)) {
       console.log("✓ Successfully loaded metrics from Redis");
       totalVisitors = redisStats.totalVisitors;
       pageViews = redisStats.pageViews;
       referrers = redisStats.referrers;
       devices = redisStats.devices;
       botHits = redisStats.bots;
+    } else {
+      // Attempt 3: Telegram Persistent Cloud Accumulator
+      const tgStats = await fetchStatsFromTelegramAccumulator(dateKey);
+      if (tgStats) {
+        console.log("✓ Successfully loaded metrics from Telegram Cloud Accumulator");
+        totalVisitors = tgStats.totalVisitors;
+        pageViews = tgStats.pageViews;
+        referrers = tgStats.referrers;
+        devices = tgStats.devices;
+        resumeClicks = tgStats.resumeClicks;
+        botHits = tgStats.bots;
+      }
     }
   }
 

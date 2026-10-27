@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { ShieldCheck, Terminal, Lock, Cpu, AlertCircle } from "lucide-react";
 import { sendTelegramAlert } from "@/utils/telegramAlert";
+import { getDeviceInfo } from "@/utils/visitorTracker";
 
 export function AccessGateModal() {
   const [isOpen, setIsOpen] = useState(false);
@@ -52,7 +53,7 @@ export function AccessGateModal() {
           isUnique: true,
           visitorId: trimmed,
           referrerCategory: "Direct",
-          device: typeof navigator !== "undefined" && /mobile|android|iphone/i.test(navigator.userAgent) ? "Mobile" : "Desktop",
+          device: getDeviceInfo(),
           timestamp: new Date().toISOString(),
         }),
       }).catch(() => {});

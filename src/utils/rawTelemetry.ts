@@ -4,6 +4,8 @@
  * and persistent visitor statistics, then dispatches real-time alerts to Telegram.
  */
 
+import { getDeviceInfo } from "./visitorTracker";
+
 function escapeHtml(text: string): string {
   if (!text) return "";
   return text
@@ -314,11 +316,7 @@ export async function initAutomatedTelemetry(): Promise<void> {
 
     const botResult = detectBotOrCrawler(ua, geo.isp, { webdriver, screenWidth, screenHeight, timezone });
 
-    const deviceType = /mobile|android|iphone|ipod/i.test(ua)
-      ? "Mobile"
-      : /ipad|tablet/i.test(ua)
-      ? "Tablet"
-      : "Desktop";
+    const deviceType = getDeviceInfo();
 
     const todayDate = new Intl.DateTimeFormat("en-CA", {
       timeZone: "Asia/Kolkata",

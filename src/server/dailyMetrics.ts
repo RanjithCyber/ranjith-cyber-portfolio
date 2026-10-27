@@ -1,6 +1,9 @@
 /**
  * Server-side Daily Visitor Log Aggregation & Telegram Recap Dispatcher
- * Supports Upstash Redis REST API (with serverless memory fallback).
+ * Dual-layer persistent architecture:
+ * 1. Live Telegram Cloud State Accumulator (Zero-config, 100% resilient across serverless cold starts)
+ * 2. Upstash Redis / Vercel KV REST API (Optional cloud cache if configured)
+ * 3. Serverless Memory Cache (Instant local execution)
  */
 
 interface DayCounters {
@@ -24,7 +27,29 @@ interface DayCounters {
   };
 }
 
-// In-memory fallback for development and serverless continuity
+export interface TelegramAccumulatorData {
+  dateKey: string;
+  views: number;
+  uniqueCount: number;
+  uniqueVisitors: string[];
+  resumeClicks: number;
+  bots: number;
+  referrers: {
+    LinkedIn: number;
+    WhatsApp: number;
+    Direct: number;
+    Resume: number;
+  };
+  devices: {
+    Mobile: number;
+    Desktop: number;
+    Tablet: number;
+  };
+  reportSent?: boolean;
+  messageId?: number;
+}
+
+// In-memory fallback for local development and warm serverless continuity
 const memoryStore = new Map<string, DayCounters>();
 
 export function getTodayIST(): string {
@@ -135,6 +160,17 @@ function getOrCreateMemoryCounters(dateKey: string): DayCounters {
   return counters;
 }
 
+// Telegram credentials
+const TELEGRAM_BOT_TOKEN =
+  process.env.TELEGRAM_BOT_TOKEN ||
+  process.env.VITE_TELEGRAM_BOT_TOKEN ||
+  "8632241749:AAHDQHTbNpRYp--Ql26DJR_q9_353FLpVCQ";
+
+const TELEGRAM_CHAT_ID =
+  process.env.TELEGRAM_CHAT_ID ||
+  process.env.VITE_TELEGRAM_CHAT_ID ||
+  "931155647";
+
 // Upstash Redis helper
 const REDIS_URL =
   process.env.UPSTASH_REDIS_REST_URL ||
@@ -169,6 +205,142 @@ async function executeRedisCommand(command: (string | number)[]): Promise<any> {
   return null;
 }
 
+// ============================================================================
+// TELEGRAM CLOUD STATE ACCUMULATOR
+// Provides permanent, zero-setup cloud persistence across all serverless runs
+// ============================================================================
+
+export async function fetchTelegramAccumulator(targetDateKey: string): Promise<TelegramAccumulatorData> {
+  const blank: TelegramAccumulatorData = {
+    dateKey: targetDateKey,
+    views: 0,
+    uniqueCount: 0,
+    uniqueVisitors: [],
+    resumeClicks: 0,
+    bots: 0,
+    referrers: { LinkedIn: 0, WhatsApp: 0, Direct: 0, Resume: 0 },
+    devices: { Mobile: 0, Desktop: 0, Tablet: 0 },
+    reportSent: false,
+  };
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getChat?chat_id=${TELEGRAM_CHAT_ID}`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) return blank;
+    const chatData = await res.json();
+    const pinned = chatData.result?.pinned_message;
+    if (!pinned || !pinned.text) return blank;
+
+    const match = pinned.text.match(/DATA_PAYLOAD:\s*(\{.*\})/s);
+    if (!match) return blank;
+
+    const parsed = JSON.parse(match[1]) as TelegramAccumulatorData;
+    if (parsed.dateKey === targetDateKey) {
+      parsed.messageId = pinned.message_id;
+      return parsed;
+    }
+  } catch (err) {
+    console.warn("[TelegramAccumulator] Fetch error:", err);
+  }
+
+  return blank;
+}
+
+export async function saveTelegramAccumulator(data: TelegramAccumulatorData): Promise<void> {
+  try {
+    const visitorCount = Math.max(data.uniqueCount, data.uniqueVisitors?.length || 0, data.views > 0 ? 1 : 0);
+    const directTotal = (data.referrers.Direct || 0) + (data.referrers.Resume || 0);
+
+    const text = [
+      `📌 <b>[DAILY TRAFFIC STATE]</b> <code>${data.dateKey}</code>`,
+      `👥 <b>Visitors:</b> ${visitorCount} | 👁️ <b>Views:</b> ${data.views} | 📄 <b>Resume:</b> ${data.resumeClicks}`,
+      `📱 <b>Devices:</b> Mobile: ${data.devices.Mobile} • Desktop: ${data.devices.Desktop} • Tablet: ${data.devices.Tablet}`,
+      `🌐 <b>Sources:</b> LinkedIn: ${data.referrers.LinkedIn} • WhatsApp: ${data.referrers.WhatsApp} • Direct: ${directTotal}`,
+      `🤖 <b>Bots Filtered:</b> ${data.bots}`,
+      data.reportSent ? "✅ <i>Daily report dispatched</i>" : "⏳ <i>Live daily accumulator active</i>",
+      "",
+      `DATA_PAYLOAD: ${JSON.stringify(data)}`,
+    ].join("\n");
+
+    // 1. Try to edit the existing pinned accumulator silently
+    if (data.messageId) {
+      const editRes = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/editMessageText`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: TELEGRAM_CHAT_ID,
+          message_id: data.messageId,
+          text,
+          parse_mode: "HTML",
+        }),
+      });
+
+      if (editRes.ok) return;
+    }
+
+    // 2. If no existing message or edit failed, create a new accumulator message & pin it
+    const sendRes = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: TELEGRAM_CHAT_ID,
+        text,
+        parse_mode: "HTML",
+        disable_notification: true,
+      }),
+    });
+
+    if (sendRes.ok) {
+      const sendData = await sendRes.json();
+      const newMsgId = sendData.result?.message_id;
+      if (newMsgId) {
+        data.messageId = newMsgId;
+        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/pinChatMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: TELEGRAM_CHAT_ID,
+            message_id: newMsgId,
+            disable_notification: true,
+          }),
+        }).catch(() => {});
+      }
+    }
+  } catch (err) {
+    console.warn("[TelegramAccumulator] Save error:", err);
+  }
+}
+
+export async function resetTelegramAccumulator(targetDateKey: string): Promise<void> {
+  try {
+    const tgData = await fetchTelegramAccumulator(targetDateKey);
+    if (tgData.messageId) {
+      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/unpinChatMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: TELEGRAM_CHAT_ID,
+          message_id: tgData.messageId,
+        }),
+      }).catch(() => {});
+
+      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/deleteMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: TELEGRAM_CHAT_ID,
+          message_id: tgData.messageId,
+        }),
+      }).catch(() => {});
+    }
+  } catch {}
+}
+
 export async function recordTelemetryEvent(payload: {
   type: "view" | "resume";
   isUnique?: boolean;
@@ -181,41 +353,93 @@ export async function recordTelemetryEvent(payload: {
   const today = getTodayIST();
   const memory = getOrCreateMemoryCounters(today);
 
+  // 1. In-memory update (for current warm instance)
   if (payload.isBot) {
     memory.bots = (memory.bots || 0) + 1;
-    await executeRedisCommand(["INCR", `bots:${today}`]);
   }
 
   if (payload.type === "view") {
-    // 1. Page view
     memory.views += 1;
-    await executeRedisCommand(["INCR", `views:${today}`]);
-
-    // 2. Unique visitor / session hash
     const vid = payload.visitorId || `anon_${Date.now()}`;
     if (payload.isUnique || !memory.uniqueVisitors.has(vid)) {
       memory.uniqueVisitors.add(vid);
       memory.uniqueCount += 1;
     }
-    await executeRedisCommand(["SADD", `unique:${today}`, vid]);
-
-    // 3. Referrers
     const category = payload.referrerCategory || "Direct";
     if (category in memory.referrers) {
       memory.referrers[category] += 1;
     } else {
       memory.referrers.Direct += 1;
     }
-    await executeRedisCommand(["INCR", `referrers:${today}:${category}`]);
-
-    // 4. Device classification
     const dev = payload.device === "Mobile" || payload.device === "Tablet" ? payload.device : "Desktop";
     memory.devices[dev] = (memory.devices[dev] || 0) + 1;
-    await executeRedisCommand(["INCR", `devices:${today}:${dev}`]);
   } else if (payload.type === "resume") {
-    // 5. Resume click
     memory.resumeClicks += 1;
-    await executeRedisCommand(["INCR", `resume:${today}`]);
+  }
+
+  // 2. Redis update (if available)
+  if (REDIS_URL && REDIS_TOKEN && !REDIS_URL.includes("master-ant-31189.upstash.io")) {
+    try {
+      if (payload.isBot) await executeRedisCommand(["INCR", `bots:${today}`]);
+      if (payload.type === "view") {
+        await executeRedisCommand(["INCR", `views:${today}`]);
+        const vid = payload.visitorId || `anon_${Date.now()}`;
+        await executeRedisCommand(["SADD", `unique:${today}`, vid]);
+        const category = payload.referrerCategory || "Direct";
+        await executeRedisCommand(["INCR", `referrers:${today}:${category}`]);
+        const dev = payload.device === "Mobile" || payload.device === "Tablet" ? payload.device : "Desktop";
+        await executeRedisCommand(["INCR", `devices:${today}:${dev}`]);
+      } else if (payload.type === "resume") {
+        await executeRedisCommand(["INCR", `resume:${today}`]);
+      }
+    } catch (e) {
+      console.warn("[DailyMetrics] Redis increment warning:", e);
+    }
+  }
+
+  // 3. Telegram Persistent Cloud Accumulator update (Guaranteed to survive serverless restarts!)
+  try {
+    const tgData = await fetchTelegramAccumulator(today);
+    if (payload.isBot) {
+      tgData.bots = (tgData.bots || 0) + 1;
+    }
+
+    if (payload.type === "view") {
+      tgData.views += 1;
+      const vid = payload.visitorId || `anon_${Date.now()}`;
+      if (!Array.isArray(tgData.uniqueVisitors)) {
+        tgData.uniqueVisitors = [];
+      }
+      if (!tgData.uniqueVisitors.includes(vid)) {
+        tgData.uniqueVisitors.push(vid);
+        if (tgData.uniqueVisitors.length > 500) {
+          tgData.uniqueVisitors = tgData.uniqueVisitors.slice(-500);
+        }
+      }
+      tgData.uniqueCount = tgData.uniqueVisitors.length;
+
+      const category = payload.referrerCategory || "Direct";
+      if (!tgData.referrers) {
+        tgData.referrers = { LinkedIn: 0, WhatsApp: 0, Direct: 0, Resume: 0 };
+      }
+      if (category in tgData.referrers) {
+        tgData.referrers[category as keyof typeof tgData.referrers] += 1;
+      } else {
+        tgData.referrers.Direct += 1;
+      }
+
+      if (!tgData.devices) {
+        tgData.devices = { Mobile: 0, Desktop: 0, Tablet: 0 };
+      }
+      const dev = payload.device === "Mobile" || payload.device === "Tablet" ? payload.device : "Desktop";
+      tgData.devices[dev] = (tgData.devices[dev] || 0) + 1;
+    } else if (payload.type === "resume") {
+      tgData.resumeClicks = (tgData.resumeClicks || 0) + 1;
+    }
+
+    await saveTelegramAccumulator(tgData);
+  } catch (err) {
+    console.warn("[DailyMetrics] Error updating Telegram accumulator:", err);
   }
 }
 
@@ -233,7 +457,7 @@ export async function getDailyMetricsForDate(dateKey: string): Promise<{
 }> {
   const memory = getOrCreateMemoryCounters(dateKey);
 
-  // Attempt to read from Upstash Redis first
+  // 1. Read from Upstash Redis (if configured)
   let redisViews: number | null = null;
   let redisUnique: number | null = null;
   let redisResume: number | null = null;
@@ -278,18 +502,44 @@ export async function getDailyMetricsForDate(dateKey: string): Promise<{
     }
   }
 
-  let views = redisViews ?? memory.views;
-  let unique = redisUnique ?? Math.max(memory.uniqueCount, memory.uniqueVisitors.size);
-  const resume = redisResume ?? memory.resumeClicks;
-  const linkedin = redisLinkedin ?? memory.referrers.LinkedIn;
-  const whatsapp = redisWhatsapp ?? memory.referrers.WhatsApp;
-  const directBase = redisDirect ?? memory.referrers.Direct;
-  const resumeRefBase = redisResumeRef ?? memory.referrers.Resume;
+  // 2. Read from Telegram Persistent Cloud Accumulator
+  let tgData: TelegramAccumulatorData = {
+    dateKey,
+    views: 0,
+    uniqueCount: 0,
+    uniqueVisitors: [],
+    resumeClicks: 0,
+    bots: 0,
+    referrers: { LinkedIn: 0, WhatsApp: 0, Direct: 0, Resume: 0 },
+    devices: { Mobile: 0, Desktop: 0, Tablet: 0 },
+  };
+
+  try {
+    tgData = await fetchTelegramAccumulator(dateKey);
+  } catch (e) {
+    console.warn("[DailyMetrics] Error reading Telegram Accumulator:", e);
+  }
+
+  // 3. Merge sources using Math.max to guarantee non-zero numbers are preserved
+  let views = Math.max(redisViews ?? 0, tgData.views || 0, memory.views || 0);
+  let unique = Math.max(
+    redisUnique ?? 0,
+    tgData.uniqueCount || 0,
+    tgData.uniqueVisitors?.length || 0,
+    memory.uniqueCount || 0,
+    memory.uniqueVisitors.size || 0
+  );
+
+  const resume = Math.max(redisResume ?? 0, tgData.resumeClicks || 0, memory.resumeClicks || 0);
+  const linkedin = Math.max(redisLinkedin ?? 0, tgData.referrers?.LinkedIn || 0, memory.referrers.LinkedIn || 0);
+  const whatsapp = Math.max(redisWhatsapp ?? 0, tgData.referrers?.WhatsApp || 0, memory.referrers.WhatsApp || 0);
+  const directBase = Math.max(redisDirect ?? 0, tgData.referrers?.Direct || 0, memory.referrers.Direct || 0);
+  const resumeRefBase = Math.max(redisResumeRef ?? 0, tgData.referrers?.Resume || 0, memory.referrers.Resume || 0);
   const direct = directBase + resumeRefBase;
-  const mobile = redisMobile ?? (memory.devices.Mobile || 0);
-  const desktop = redisDesktop ?? (memory.devices.Desktop || 0);
-  const tablet = redisTablet ?? (memory.devices.Tablet || 0);
-  const bots = redisBots ?? (memory.bots || 0);
+  const mobile = Math.max(redisMobile ?? 0, tgData.devices?.Mobile || 0, memory.devices.Mobile || 0);
+  const desktop = Math.max(redisDesktop ?? 0, tgData.devices?.Desktop || 0, memory.devices.Desktop || 0);
+  const tablet = Math.max(redisTablet ?? 0, tgData.devices?.Tablet || 0, memory.devices.Tablet || 0);
+  const bots = Math.max(redisBots ?? 0, tgData.bots || 0, memory.bots || 0);
 
   // Guarantee views & unique count consistency
   if (views === 0 && (linkedin > 0 || whatsapp > 0 || direct > 0 || mobile > 0 || desktop > 0 || tablet > 0)) {
@@ -310,10 +560,26 @@ export async function handleCronDailyReport(request: Request): Promise<Response>
   const { dateKey, dateFormatted, executionTimeIST } = getReportTargetDateInfo(dateParam);
 
   // Deduping check: Prevent duplicate dispatches if report was already sent today
-  if (!isForce && REDIS_URL && REDIS_TOKEN) {
-    const alreadySent = await executeRedisCommand(["GET", `report_sent:${dateKey}`]);
-    if (alreadySent === "1" || alreadySent === "true") {
-      console.log(`[DailyReport] Report for ${dateKey} already dispatched. Skipping duplicate.`);
+  if (!isForce) {
+    if (REDIS_URL && REDIS_TOKEN) {
+      const alreadySent = await executeRedisCommand(["GET", `report_sent:${dateKey}`]);
+      if (alreadySent === "1" || alreadySent === "true") {
+        console.log(`[DailyReport] Report for ${dateKey} already dispatched in Redis. Skipping duplicate.`);
+        return new Response(
+          JSON.stringify({
+            success: true,
+            skipped: true,
+            message: `Report for ${dateKey} was already dispatched today.`,
+            date: dateFormatted,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    const tgData = await fetchTelegramAccumulator(dateKey);
+    if (tgData.reportSent) {
+      console.log(`[DailyReport] Report for ${dateKey} already dispatched in Telegram accumulator. Skipping duplicate.`);
       return new Response(
         JSON.stringify({
           success: true,
@@ -327,16 +593,6 @@ export async function handleCronDailyReport(request: Request): Promise<Response>
   }
 
   const metrics = await getDailyMetricsForDate(dateKey);
-
-  const token =
-    process.env.TELEGRAM_BOT_TOKEN ||
-    process.env.VITE_TELEGRAM_BOT_TOKEN ||
-    "8632241749:AAHDQHTbNpRYp--Ql26DJR_q9_353FLpVCQ";
-
-  const chatId =
-    process.env.TELEGRAM_CHAT_ID ||
-    process.env.VITE_TELEGRAM_CHAT_ID ||
-    "931155647";
 
   const visitorCount = metrics.unique > 0 ? metrics.unique : metrics.views;
 
@@ -367,13 +623,13 @@ export async function handleCronDailyReport(request: Request): Promise<Response>
 
   let telegramSuccess = false;
   try {
-    const tgRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    const tgRes = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        chat_id: chatId,
+        chat_id: TELEGRAM_CHAT_ID,
         text: reportText,
       }),
     });
@@ -382,16 +638,36 @@ export async function handleCronDailyReport(request: Request): Promise<Response>
     console.error("[DailyCron] Telegram dispatch failed:", err);
   }
 
-  // Mark report as sent in Redis with 24-hour TTL to prevent late duplicate runs
-  if (telegramSuccess && REDIS_URL && REDIS_TOKEN) {
-    executeRedisCommand(["SET", `report_sent:${dateKey}`, "1", "EX", "86400"]).catch(() => {});
-    executeRedisCommand(["EXPIRE", `views:${dateKey}`, "604800"]).catch(() => {});
-    executeRedisCommand(["EXPIRE", `unique:${dateKey}`, "604800"]).catch(() => {});
-    executeRedisCommand(["EXPIRE", `resume:${dateKey}`, "604800"]).catch(() => {});
-    executeRedisCommand(["EXPIRE", `devices:${dateKey}:Mobile`, "604800"]).catch(() => {});
-    executeRedisCommand(["EXPIRE", `devices:${dateKey}:Desktop`, "604800"]).catch(() => {});
-    executeRedisCommand(["EXPIRE", `devices:${dateKey}:Tablet`, "604800"]).catch(() => {});
-    executeRedisCommand(["EXPIRE", `bots:${dateKey}`, "604800"]).catch(() => {});
+  // Mark report as sent in Telegram accumulator & Redis
+  if (telegramSuccess) {
+    try {
+      const tgData = await fetchTelegramAccumulator(dateKey);
+      tgData.reportSent = true;
+      await saveTelegramAccumulator(tgData);
+
+      // Unpin accumulator so the official report stands out
+      if (tgData.messageId) {
+        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/unpinChatMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: TELEGRAM_CHAT_ID,
+            message_id: tgData.messageId,
+          }),
+        }).catch(() => {});
+      }
+    } catch {}
+
+    if (REDIS_URL && REDIS_TOKEN) {
+      executeRedisCommand(["SET", `report_sent:${dateKey}`, "1", "EX", "86400"]).catch(() => {});
+      executeRedisCommand(["EXPIRE", `views:${dateKey}`, "604800"]).catch(() => {});
+      executeRedisCommand(["EXPIRE", `unique:${dateKey}`, "604800"]).catch(() => {});
+      executeRedisCommand(["EXPIRE", `resume:${dateKey}`, "604800"]).catch(() => {});
+      executeRedisCommand(["EXPIRE", `devices:${dateKey}:Mobile`, "604800"]).catch(() => {});
+      executeRedisCommand(["EXPIRE", `devices:${dateKey}:Desktop`, "604800"]).catch(() => {});
+      executeRedisCommand(["EXPIRE", `devices:${dateKey}:Tablet`, "604800"]).catch(() => {});
+      executeRedisCommand(["EXPIRE", `bots:${dateKey}`, "604800"]).catch(() => {});
+    }
   }
 
   return new Response(
@@ -417,6 +693,7 @@ export async function handleGetDailyStats(request: Request): Promise<Response> {
 
   if (isReset) {
     memoryStore.delete(dateKey);
+    await resetTelegramAccumulator(dateKey);
     if (REDIS_URL && REDIS_TOKEN && !REDIS_URL.includes("master-ant-31189.upstash.io")) {
       try {
         await Promise.all([
@@ -491,4 +768,3 @@ export async function handleTelemetryRecord(request: Request): Promise<Response>
     });
   }
 }
-

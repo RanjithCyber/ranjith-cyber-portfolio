@@ -160,12 +160,30 @@ function getReferrerCategory(): { rawReferrer: string; category: string } {
   return { rawReferrer: "Direct", category: "Direct" };
 }
 
-function getDeviceInfo(): string {
+export function getDeviceInfo(): "Mobile" | "Tablet" | "Desktop" {
   if (typeof navigator === "undefined") return "Desktop";
   const ua = navigator.userAgent || "";
+  const uaLower = ua.toLowerCase();
 
-  if (/ipad|tablet|playbook|silk/i.test(ua)) return "Tablet";
-  if (/mobile|android|iphone|ipod|blackberry|opera mini|iemobile/i.test(ua)) return "Mobile";
+  // 1. Tablet check first (iPad, tablet, Kindle, PlayBook, or Android without Mobile)
+  if (
+    /ipad|tablet|playbook|silk/i.test(uaLower) ||
+    (/android/i.test(uaLower) && !/mobile/i.test(uaLower)) ||
+    (typeof navigator !== "undefined" && navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  ) {
+    return "Tablet";
+  }
+
+  // 2. Mobile check (iPhone, Android mobile, Blackberry, Opera Mini)
+  if (/mobile|iphone|ipod|android.*mobile|blackberry|iemobile|opera mini|webos/i.test(uaLower)) {
+    return "Mobile";
+  }
+
+  // 3. Fallback on screen width if in browser
+  if (typeof window !== "undefined" && window.innerWidth > 0 && window.innerWidth < 768) {
+    return "Mobile";
+  }
+
   return "Desktop";
 }
 
